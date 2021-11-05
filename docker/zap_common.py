@@ -491,7 +491,7 @@ def zap_get_alerts(zap, baseurl, ignore_scan_rules, out_of_scope_dict):
     alert_dict = {}
     alert_count = 0
     alerts = zap.core.alerts(baseurl=baseurl, start=st, count=pg)
-    max_alerts = int(os.environ.get('ZAP_MAX_ALERTS', -1)
+    max_alerts = int(os.environ.get('ZAP_MAX_ALERTS', 14999))
     while len(alerts) > 0:
         logging.debug('Reading ' + str(pg) + ' alerts from ' + str(st))
         alert_count += len(alerts)
