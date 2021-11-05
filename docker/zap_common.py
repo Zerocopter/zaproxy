@@ -508,7 +508,7 @@ def zap_get_alerts(zap, baseurl, ignore_scan_rules, out_of_scope_dict):
                 alert_dict[plugin_id] = []
             alert_dict[plugin_id].append(alert)
         st += pg
-        if 0 <= alert_count <= max_alerts:
+        if not 0 <= alert_count <= max_alerts:
             logging.info(f'Abort alert retrieval prematurely after seeing {max_alerts} alerts')
             return alert_dict    
         alerts = zap.core.alerts(start=st, count=pg)
