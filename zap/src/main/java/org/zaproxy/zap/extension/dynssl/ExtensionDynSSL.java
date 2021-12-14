@@ -50,14 +50,14 @@ import org.parosproxy.paros.extension.CommandLineArgument;
 import org.parosproxy.paros.extension.CommandLineListener;
 import org.parosproxy.paros.extension.ExtensionAdaptor;
 import org.parosproxy.paros.extension.ExtensionHook;
-import org.parosproxy.paros.security.CachedSslCertifificateServiceImpl;
-import org.parosproxy.paros.security.SslCertificateService;
+import org.parosproxy.paros.network.SSLConnector;
 
 /**
  * Extension enables configuration for Root CA certificate
  *
  * @author MaWoKi
  */
+@Deprecated
 public class ExtensionDynSSL extends ExtensionAdaptor implements CommandLineListener {
 
     public static final String EXTENSION_ID = "ExtensionDynSSL";
@@ -95,6 +95,15 @@ public class ExtensionDynSSL extends ExtensionAdaptor implements CommandLineList
 
     @Override
     public void start() {
+        try {
+            startImpl();
+        } finally {
+            SSLConnector.setSslCertificateService(
+                    org.parosproxy.paros.security.CachedSslCertifificateServiceImpl.getService());
+        }
+    }
+
+    private void startImpl() {
         final KeyStore rootca = getParams().getRootca();
         if (rootca == null) {
             try {
@@ -150,14 +159,18 @@ public class ExtensionDynSSL extends ExtensionAdaptor implements CommandLineList
 
     public void setRootCa(KeyStore rootca)
             throws UnrecoverableKeyException, KeyStoreException, NoSuchAlgorithmException {
-        CachedSslCertifificateServiceImpl.getService().initializeRootCA(rootca);
+        org.parosproxy.paros.security.CachedSslCertifificateServiceImpl.getService()
+                .initializeRootCA(rootca);
     }
 
     public Certificate getRootCA() throws KeyStoreException {
         if (this.getParams().getRootca() == null) {
             return null;
         }
-        return this.getParams().getRootca().getCertificate(SslCertificateService.ZAPROXY_JKS_ALIAS);
+        return this.getParams()
+                .getRootca()
+                .getCertificate(
+                        org.parosproxy.paros.security.SslCertificateService.ZAPROXY_JKS_ALIAS);
     }
 
     /** No database tables used, so all supported */
@@ -199,7 +212,9 @@ public class ExtensionDynSSL extends ExtensionAdaptor implements CommandLineList
     public void writeRootPubCaCertificateToFile(Path path) throws IOException, KeyStoreException {
         KeyStore ks = this.getParams().getRootca();
         if (ks != null) {
-            final Certificate cert = ks.getCertificate(SslCertificateService.ZAPROXY_JKS_ALIAS);
+            final Certificate cert =
+                    ks.getCertificate(
+                            org.parosproxy.paros.security.SslCertificateService.ZAPROXY_JKS_ALIAS);
             try (final Writer w = Files.newBufferedWriter(path, StandardCharsets.US_ASCII);
                     final PemWriter pw = new PemWriter(w)) {
                 pw.writeObject(new JcaMiscPEMGenerator(cert));
@@ -225,7 +240,9 @@ public class ExtensionDynSSL extends ExtensionAdaptor implements CommandLineList
                     UnrecoverableKeyException {
         KeyStore ks = this.getParams().getRootca();
         if (ks != null) {
-            final Certificate cert = ks.getCertificate(SslCertificateService.ZAPROXY_JKS_ALIAS);
+            final Certificate cert =
+                    ks.getCertificate(
+                            org.parosproxy.paros.security.SslCertificateService.ZAPROXY_JKS_ALIAS);
             try (final Writer w = Files.newBufferedWriter(path, StandardCharsets.US_ASCII);
                     final PemWriter pw = new PemWriter(w)) {
                 pw.writeObject(new JcaMiscPEMGenerator(cert));
@@ -234,8 +251,9 @@ public class ExtensionDynSSL extends ExtensionAdaptor implements CommandLineList
                 w.write(SslCertificateUtils.BEGIN_PRIVATE_KEY_TOKEN + "\n");
                 Key key =
                         ks.getKey(
-                                SslCertificateService.ZAPROXY_JKS_ALIAS,
-                                SslCertificateService.PASSPHRASE);
+                                org.parosproxy.paros.security.SslCertificateService
+                                        .ZAPROXY_JKS_ALIAS,
+                                org.parosproxy.paros.security.SslCertificateService.PASSPHRASE);
                 PrivateKey pk = (PrivateKey) key;
                 w.write(Base64.getMimeEncoder().encodeToString(pk.getEncoded()));
                 w.write("\n" + SslCertificateUtils.END_PRIVATE_KEY_TOKEN + "\n");

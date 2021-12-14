@@ -51,12 +51,12 @@ crowdin {
 
 tasks.named<JacocoReport>("jacocoTestReport") {
     reports {
-        xml.isEnabled = true
+        xml.required.set(true)
     }
 }
 
 dependencies {
-    api("com.fifesoft:rsyntaxtextarea:3.1.3")
+    api("com.fifesoft:rsyntaxtextarea:3.1.4")
     api("com.github.zafarkhaja:java-semver:0.9.0")
     api("commons-beanutils:commons-beanutils:1.9.4")
     api("commons-codec:commons-codec:1.15")
@@ -69,17 +69,18 @@ dependencies {
     api("org.apache.commons:commons-text:1.9")
     api("edu.umass.cs.benchlab:harlib:1.1.3")
     api("javax.help:javahelp:2.0.05")
-    val log4jVersion = "2.14.1"
+    val log4jVersion = "2.15.0"
     api("org.apache.logging.log4j:log4j-api:$log4jVersion")
     api("org.apache.logging.log4j:log4j-1.2-api:$log4jVersion")
     implementation("org.apache.logging.log4j:log4j-core:$log4jVersion")
     api("net.htmlparser.jericho:jericho-html:3.4")
     api("net.sf.json-lib:json-lib:2.4:jdk15")
     api("org.apache.commons:commons-csv:1.9.0")
+    // Bouncy Castle is no longer in actual use by core, to be removed in a following version.
     val bcVersion = "1.69"
-    api("org.bouncycastle:bcmail-jdk15on:$bcVersion")
-    api("org.bouncycastle:bcprov-jdk15on:$bcVersion")
-    api("org.bouncycastle:bcpkix-jdk15on:$bcVersion")
+    implementation("org.bouncycastle:bcmail-jdk15on:$bcVersion")
+    implementation("org.bouncycastle:bcprov-jdk15on:$bcVersion")
+    implementation("org.bouncycastle:bcpkix-jdk15on:$bcVersion")
     api("org.hsqldb:hsqldb:2.5.2")
     api("org.jfree:jfreechart:1.5.3")
     api("org.jgrapht:jgrapht-core:0.9.0")
@@ -91,7 +92,7 @@ dependencies {
     implementation("org.jitsi:ice4j:3.0-24-g34c2ce5") {
         setTransitive(false)
     }
-    implementation("com.formdev:flatlaf:1.6.1")
+    implementation("com.formdev:flatlaf:1.6.5")
 
     runtimeOnly("commons-jxpath:commons-jxpath:1.3")
     runtimeOnly("commons-logging:commons-logging:1.2")
@@ -121,7 +122,7 @@ tasks.register<JavaExec>("run") {
     group = ApplicationPlugin.APPLICATION_GROUP
     description = "Runs ZAP from source, using the default dev home."
 
-    main = "org.zaproxy.zap.ZAP"
+    mainClass.set("org.zaproxy.zap.ZAP")
     classpath = sourceSets["main"].runtimeClasspath
     workingDir = distDir
 }
@@ -246,7 +247,7 @@ listOf(
         group = "ZAP Misc"
         description = "Generates (and copies) the ZAP API endpoints for $langName."
 
-        main = it
+        mainClass.set(it)
         classpath = sourceSets["main"].runtimeClasspath
         workingDir = file("$rootDir")
     }

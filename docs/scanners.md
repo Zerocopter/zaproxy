@@ -36,7 +36,7 @@ Scanners:
 10017   Cross-domain JavaScript source file inclusion
 10018   Untrusted domains in JavaScript source code
 10019   Content-Type header missing
-10020   X-Frame-Options header not set
+10020   Anti-clickjacking Header
 10021   X-Content-Type-Options header missing
 10022   Information disclosure - database error messages [Deprecated]
 10023   Information disclosure - debug error messages
@@ -169,6 +169,7 @@ Scanners:
 40040	CORS active scan rule
 40041   FileUpload Scanner
 40042   Spring Actuator Test
+40043   Log4Shell (CVE-2021-44228)
 
 50000   Active Scan scripts
 50001   Passive Scan scripts
