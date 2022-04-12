@@ -88,6 +88,9 @@
 // ZAP: 2020/12/09 Set content encoding to the response body.
 // ZAP: 2021/05/14 Remove redundant type arguments and empty statement.
 // ZAP: 2022/01/04 Add initiator constant OAST_INITIATOR for OAST requests.
+// ZAP: 2022/04/08 Deprecate getSSLConnector() and executeMethod.
+// ZAP: 2022/04/10 Add support for unencoded redirects
+// ZAP: 2022/04/11 Deprecate set/getUserAgent() and remove userAgent/modifyUserAgent().
 package org.parosproxy.paros.network;
 
 import java.io.IOException;
@@ -179,7 +182,6 @@ public class HttpSender {
     }
 
     private static HttpMethodHelper helper = new HttpMethodHelper();
-    private static String userAgent = "";
     private static final ThreadLocal<Boolean> IN_LISTENER = new ThreadLocal<>();
 
     private HttpClient client = null;
@@ -257,6 +259,13 @@ public class HttpSender {
         clientViaProxy.getParams().setCookiePolicy(policy);
     }
 
+    /**
+     * Gets the {@code SSLConnector} of the client.
+     *
+     * @return the {@code SSLConnector} used by the sender.
+     * @deprecated (2.12.0) It will be removed in a following version.
+     */
+    @Deprecated
     public static SSLConnector getSSLConnector() {
         return (SSLConnector) protocol.getSocketFactory();
     }
@@ -364,7 +373,22 @@ public class HttpSender {
         }
     }
 
+    /**
+     * Executes the given method.
+     *
+     * @param method the method.
+     * @param state the state, might be {@code null}.
+     * @return the status code.
+     * @throws IOException if an error occurred while executing the method.
+     * @deprecated (2.12.0) Use one of the {@code sendAndReceive} methods. It will be removed in a
+     *     following version.
+     */
+    @Deprecated
     public int executeMethod(HttpMethod method, HttpState state) throws IOException {
+        return executeMethodImpl(method, state);
+    }
+
+    private int executeMethodImpl(HttpMethod method, HttpState state) throws IOException {
         int responseCode = -1;
 
         String hostName;
@@ -508,9 +532,7 @@ public class HttpSender {
                                     && temp.getResponseHeader().getStatusCode()
                                             != HttpStatusCode.NOT_MODIFIED);
                     i++) {
-                String location = temp.getResponseHeader().getHeader(HttpHeader.LOCATION);
-                URI baseUri = temp.getRequestHeader().getURI();
-                URI newLocation = new URI(baseUri, location, false);
+                URI newLocation = extractRedirectLocation(temp);
                 temp.getRequestHeader().setURI(newLocation);
 
                 temp.getRequestHeader().setMethod(HttpRequestHeader.GET);
@@ -660,19 +682,18 @@ public class HttpSender {
             throws IOException {
         HttpMethod method = null;
         // no more retry
-        modifyUserAgent(msg);
         method = helper.createRequestMethod(msg.getRequestHeader(), msg.getRequestBody(), params);
         if (!(method instanceof EntityEnclosingMethod) || method instanceof ZapGetMethod) {
             // cant do this for EntityEnclosingMethod methods - it will fail
             method.setFollowRedirects(isFollowRedirect);
         }
-        // ZAP: Use custom HttpState if needed
+
+        HttpState state = null;
         User forceUser = this.getUser(msg);
         if (forceUser != null) {
-            this.executeMethod(method, forceUser.getCorrespondingHttpState());
-        } else {
-            this.executeMethod(method, null);
+            state = forceUser.getCorrespondingHttpState();
         }
+        executeMethodImpl(method, state);
 
         HttpMethodHelper.updateHttpRequestHeaderSent(msg.getRequestHeader(), method);
 
@@ -683,45 +704,23 @@ public class HttpSender {
         this.followRedirect = followRedirect;
     }
 
-    private void modifyUserAgent(HttpMessage msg) {
-
-        try {
-            // no modification to user agent if empty
-            if (userAgent.equals("") || msg.getRequestHeader().isEmpty()) {
-                return;
-            }
-
-            // append new user agent to existing user agent
-            String currentUserAgent = msg.getRequestHeader().getHeader(HttpHeader.USER_AGENT);
-            if (currentUserAgent == null) {
-                currentUserAgent = "";
-            }
-
-            if (currentUserAgent.indexOf(userAgent) >= 0) {
-                // user agent already in place, exit
-                return;
-            }
-
-            String delimiter = "";
-            if (!currentUserAgent.equals("") && !currentUserAgent.endsWith(" ")) {
-                delimiter = " ";
-            }
-
-            currentUserAgent = currentUserAgent + delimiter + userAgent;
-            msg.getRequestHeader().setHeader(HttpHeader.USER_AGENT, currentUserAgent);
-        } catch (Exception e) {
-        }
-    }
-
-    /** @return Returns the userAgent. */
+    /**
+     * @return Returns the userAgent.
+     * @deprecated (2.12.0) No longer supported, it returns an empty string.
+     * @see #setUserAgent(String)
+     */
+    @Deprecated
     public static String getUserAgent() {
-        return userAgent;
+        return "";
     }
 
-    /** @param userAgent The userAgent to set. */
-    public static void setUserAgent(String userAgent) {
-        HttpSender.userAgent = userAgent;
-    }
+    /**
+     * @param userAgent The userAgent to set.
+     * @deprecated (2.12.0) No longer supported, use a {@link HttpSenderListener} to actually set
+     *     the user agent.
+     */
+    @Deprecated
+    public static void setUserAgent(String userAgent) {}
 
     private void setCommonManagerParams(MultiThreadedHttpConnectionManager mgr) {
         int timeout = (int) TimeUnit.SECONDS.toMillis(this.param.getTimeoutInSecs());
@@ -1178,8 +1177,13 @@ public class HttpSender {
         try {
             return new URI(message.getRequestHeader().getURI(), location, true);
         } catch (URIException ex) {
-            throw new InvalidRedirectLocationException(
-                    "Invalid redirect location: " + location, location, ex);
+            try {
+                // Handle redirect URLs that are unencoded
+                return new URI(message.getRequestHeader().getURI(), location, false);
+            } catch (URIException e) {
+                throw new InvalidRedirectLocationException(
+                        "Invalid redirect location: " + location, location, ex);
+            }
         }
     }
 }

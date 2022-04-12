@@ -50,6 +50,8 @@
 // ZAP: 2020/04/20 Allow to configure the SOCKS proxy (Issue 29).
 // ZAP: 2020/11/26 Use Log4j 2 classes for logging.
 // ZAP: 2021/10/06 Updated default user agent
+// ZAP: 2022/02/02 Removed getProxyChainSkipName() and setProxyChainSkipName(String)
+// ZAP: 2022/02/08 Use isEmpty where applicable.
 package org.parosproxy.paros.network;
 
 import java.net.PasswordAuthentication;
@@ -402,31 +404,6 @@ public class ConnectionParam extends AbstractParam {
     public void setProxyChainPort(int proxyChainPort) {
         this.proxyChainPort = proxyChainPort;
         getConfig().setProperty(PROXY_CHAIN_PORT, Integer.toString(this.proxyChainPort));
-    }
-
-    /**
-     * @deprecated (2.3.0) Replaced by {@link #getProxyExcludedDomains()} and {@link
-     *     #getProxyExcludedDomainsEnabled()}. <strong>Note:</strong> Newer regular expression
-     *     excluded domains will not be returned by this method.
-     */
-    @Deprecated
-    @ZapApiIgnore
-    @SuppressWarnings({"javadoc"})
-    public String getProxyChainSkipName() {
-        StringBuilder skipNamesStringBuilder = new StringBuilder("");
-        for (DomainMatcher excludedDomain : proxyExcludedDomains) {
-            if (!excludedDomain.isRegex()) {
-                skipNamesStringBuilder.append(excludedDomain.getValue()).append(';');
-            }
-        }
-        return skipNamesStringBuilder.toString();
-    }
-
-    /** @deprecated (2.3.0) Replaced by {@link #setProxyExcludedDomains(List)}. */
-    @Deprecated
-    @SuppressWarnings({"javadoc"})
-    public void setProxyChainSkipName(String proxyChainSkipName) {
-        setProxyExcludedDomains(convertOldSkipNameOption(proxyChainSkipName));
     }
 
     /**
@@ -791,7 +768,7 @@ public class ConnectionParam extends AbstractParam {
 
     private void loadSecurityProtocolsEnabled() {
         List<Object> protocols = getConfig().getList(ALL_SECURITY_PROTOCOLS_ENABLED_KEY);
-        if (protocols.size() != 0) {
+        if (!protocols.isEmpty()) {
             securityProtocolsEnabled = new String[protocols.size()];
             securityProtocolsEnabled = protocols.toArray(securityProtocolsEnabled);
             setClientEnabledProtocols();

@@ -111,12 +111,6 @@ public final class CoreFunctionality {
                     new org.zaproxy.zap.extension.httppanel.view.image
                             .ExtensionHttpPanelImageView());
             extensions.add(
-                    new org.zaproxy.zap.extension.httppanel.view.largerequest
-                            .ExtensionHttpPanelLargeRequestView());
-            extensions.add(
-                    new org.zaproxy.zap.extension.httppanel.view.largeresponse
-                            .ExtensionHttpPanelLargeResponseView());
-            extensions.add(
                     new org.zaproxy.zap.extension.httppanel.view.paramtable
                             .ExtensionHttpPanelRequestFormTableView());
             extensions.add(
@@ -132,7 +126,6 @@ public final class CoreFunctionality {
             extensions.add(new org.zaproxy.zap.extension.keyboard.ExtensionKeyboard());
             extensions.add(new org.zaproxy.zap.extension.log4j.ExtensionLog4j());
             extensions.add(new org.zaproxy.zap.extension.params.ExtensionParams());
-            extensions.add(new org.zaproxy.zap.extension.proxies.ExtensionProxies());
             extensions.add(new org.zaproxy.zap.extension.pscan.ExtensionPassiveScan());
             extensions.add(new org.zaproxy.zap.extension.ruleconfig.ExtensionRuleConfig());
             extensions.add(new org.zaproxy.zap.extension.script.ExtensionScript());

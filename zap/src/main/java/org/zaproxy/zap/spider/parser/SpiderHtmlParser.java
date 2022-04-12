@@ -39,8 +39,8 @@ import org.zaproxy.zap.spider.URLCanonicalizer;
  */
 public class SpiderHtmlParser extends SpiderParser {
 
-    /** The Constant urlPattern defining the pattern for a meta url. */
-    private static final Pattern urlPattern =
+    /** The Constant URL_PATTERN defining the pattern for a meta url. */
+    static final Pattern URL_PATTERN =
             Pattern.compile("url\\s*=\\s*[\"']?([^;'\"]+)", Pattern.CASE_INSENSITIVE);
 
     private static final Pattern PLAIN_COMMENTS_URL_PATTERN =
@@ -106,6 +106,16 @@ public class SpiderHtmlParser extends SpiderParser {
             }
         }
 
+        // Parse the DOCTYPEs (should only be one, but you never know;)
+        List<StartTag> doctypes = source.getAllStartTags(StartTagType.DOCTYPE_DECLARATION);
+        for (StartTag doctype : doctypes) {
+            for (String str : doctype.getTagContent().toString().split(" ")) {
+                if (str.startsWith("\"") && str.endsWith("\"")) {
+                    processURL(message, depth, str.substring(1, str.length() - 1), baseURL);
+                }
+            }
+        }
+
         return false;
     }
 
@@ -128,11 +138,25 @@ public class SpiderHtmlParser extends SpiderParser {
             resourcesfound |= processAttributeElement(message, depth, baseURL, el, "ping");
         }
 
+        // Process Applet elements
+        elements = source.getAllElements(HTMLElementName.APPLET);
+        for (Element el : elements) {
+            resourcesfound |= processAttributeElement(message, depth, baseURL, el, "archive");
+            resourcesfound |= processAttributeElement(message, depth, baseURL, el, "codebase");
+            resourcesfound |= processAttributeElement(message, depth, baseURL, el, "src");
+        }
+
         // Process AREA elements
         elements = source.getAllElements(HTMLElementName.AREA);
         for (Element el : elements) {
             resourcesfound |= processAttributeElement(message, depth, baseURL, el, "href");
             resourcesfound |= processAttributeElement(message, depth, baseURL, el, "ping");
+        }
+
+        // Process Embed Elements
+        elements = source.getAllElements(HTMLElementName.EMBED);
+        for (Element el : elements) {
+            resourcesfound |= processAttributeElement(message, depth, baseURL, el, "src");
         }
 
         // Process Frame Elements
@@ -143,6 +167,12 @@ public class SpiderHtmlParser extends SpiderParser {
 
         // Process IFrame Elements
         elements = source.getAllElements(HTMLElementName.IFRAME);
+        for (Element el : elements) {
+            resourcesfound |= processAttributeElement(message, depth, baseURL, el, "src");
+        }
+
+        // Process Input elements
+        elements = source.getAllElements(HTMLElementName.INPUT);
         for (Element el : elements) {
             resourcesfound |= processAttributeElement(message, depth, baseURL, el, "src");
         }
@@ -163,6 +193,9 @@ public class SpiderHtmlParser extends SpiderParser {
         elements = source.getAllElements(HTMLElementName.IMG);
         for (Element el : elements) {
             resourcesfound |= processAttributeElement(message, depth, baseURL, el, "src");
+            resourcesfound |= processAttributeElement(message, depth, baseURL, el, "longdesc");
+            resourcesfound |= processAttributeElement(message, depth, baseURL, el, "lowsrc");
+            resourcesfound |= processAttributeElement(message, depth, baseURL, el, "dynsrc");
         }
 
         // Process META elements
@@ -177,7 +210,7 @@ public class SpiderHtmlParser extends SpiderParser {
                 // http-equiv="refresh" content="0;URL=http://foo.bar/..."
                 // http-equiv="location" content="url=http://foo.bar/..."
                 if (equiv.equalsIgnoreCase("refresh") || equiv.equalsIgnoreCase("location")) {
-                    Matcher matcher = urlPattern.matcher(content);
+                    Matcher matcher = URL_PATTERN.matcher(content);
                     if (matcher.find()) {
                         String url = matcher.group(1);
                         processURL(message, depth, url, baseURL);
@@ -185,6 +218,18 @@ public class SpiderHtmlParser extends SpiderParser {
                     }
                 }
             }
+        }
+
+        // Process HTML manifest elements
+        elements = source.getAllElements(HTMLElementName.HTML);
+        for (Element el : elements) {
+            resourcesfound |= processAttributeElement(message, depth, baseURL, el, "manifest");
+        }
+
+        // Process BODY background elements
+        elements = source.getAllElements(HTMLElementName.BODY);
+        for (Element el : elements) {
+            resourcesfound |= processAttributeElement(message, depth, baseURL, el, "background");
         }
 
         return resourcesfound;

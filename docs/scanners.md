@@ -169,7 +169,9 @@ Scanners:
 40040	CORS active scan rule
 40041   FileUpload Scanner
 40042   Spring Actuator Test
-40043   Log4Shell (CVE-2021-44228)
+40043   Log4Shell (CVE-2021-44228, CVE-2021-45046)
+40044   Exponential Entity Expansion (Billion Laughs Attack)
+40045   Spring4Shell (CVE-2022-22965)
 
 50000   Active Scan scripts
 50001   Passive Scan scripts
@@ -242,6 +244,7 @@ Scanners:
 100030  Good Old Files Lite [Script]
 100031  DNS Email Spoofing [Script]
 100032  WordPress Username Enumeration [Script]
+100033  Server Side Template Injection [Script]
 
 110000  Websocket Passive Scan scripts
 110001  Application Error Disclosure [Script]

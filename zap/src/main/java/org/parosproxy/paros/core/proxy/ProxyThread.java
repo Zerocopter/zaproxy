@@ -86,6 +86,7 @@
 // ZAP: 2019/06/05 Normalise format/style.
 // ZAP: 2020/11/26 Use Log4j 2 classes for logging.
 // ZAP: 2020/12/09 Rely on the content encodings from the body to decode.
+// ZAP: 2022/02/09 Deprecate the class.
 package org.parosproxy.paros.core.proxy;
 
 import java.io.BufferedInputStream;
@@ -121,13 +122,14 @@ import org.parosproxy.paros.network.HttpOutputStream;
 import org.parosproxy.paros.network.HttpRequestHeader;
 import org.parosproxy.paros.network.HttpResponseHeader;
 import org.parosproxy.paros.network.HttpSender;
-import org.parosproxy.paros.network.HttpUtil;
 import org.zaproxy.zap.PersistentConnectionListener;
 import org.zaproxy.zap.ZapGetMethod;
 import org.zaproxy.zap.extension.api.API;
 import org.zaproxy.zap.network.HttpRequestBody;
 import org.zaproxy.zap.network.HttpRequestConfig;
 
+/** @deprecated No longer used/needed. It will be removed in a future release. */
+@Deprecated
 public class ProxyThread implements Runnable {
 
     //	private static final int		BUFFEREDSTREAM_SIZE = 4096;
@@ -684,7 +686,7 @@ public class ProxyThread implements Runnable {
             }
         }
 
-        HttpUtil.closeSocket(inSocket);
+        org.parosproxy.paros.network.HttpUtil.closeSocket(inSocket);
 
         if (httpSender != null) {
             httpSender.shutdown();
