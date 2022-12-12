@@ -64,9 +64,10 @@
 // ZAP: 2020/11/26 Use Log4j 2 classes for logging.
 // ZAP: 2021/07/07 Add TYPE_OAST.
 // ZAP: 2022/02/28 Remove code deprecated in 2.6.0
+// ZAP: 2022/06/27 Add TYPE_PARAM_DIGGER.
+// ZAP: 2022/09/21 Use format specifiers instead of concatenation when logging.
 package org.parosproxy.paros.model;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -274,6 +275,13 @@ public class HistoryReference {
      */
     public static final int TYPE_OAST = 22;
 
+    /**
+     * An HTTP message sent by the param digger.
+     *
+     * @since 2.12.0
+     */
+    public static final int TYPE_PARAM_DIGGER = 23;
+
     private static java.text.DecimalFormat decimalFormat = new java.text.DecimalFormat("##0.###");
     private static TableHistory staticTableHistory = null;
     // ZAP: Support for multiple tags
@@ -441,7 +449,7 @@ public class HistoryReference {
      *
      * @return the http message
      * @throws HttpMalformedHeaderException the http malformed header exception
-     * @throws SQLException the sQL exception
+     * @throws DatabaseException if an error occurred while reading the HTTP message.
      */
     public HttpMessage getHttpMessage() throws HttpMalformedHeaderException, DatabaseException {
         if (httpMessage != null) {
@@ -548,7 +556,7 @@ public class HistoryReference {
             staticTableTag.insert(historyId, tag);
             return true;
         } catch (DatabaseException e) {
-            log.error("Failed to persist tag: " + e.getMessage(), e);
+            log.error("Failed to persist tag: {}", e.getMessage(), e);
         }
         return false;
     }
@@ -580,7 +588,7 @@ public class HistoryReference {
             staticTableTag.delete(historyId, tag);
             return true;
         } catch (DatabaseException e) {
-            log.error("Failed to delete tag: " + e.getMessage(), e);
+            log.error("Failed to delete tag: {}", e.getMessage(), e);
         }
         return false;
     }
@@ -826,7 +834,8 @@ public class HistoryReference {
                 httpMessageCachedData.setRequestBody(requestBody);
             } catch (HttpMalformedHeaderException | DatabaseException e) {
                 log.error(
-                        "Failed to reload request body from database with history ID: " + historyId,
+                        "Failed to reload request body from database with history ID: {}",
+                        historyId,
                         e);
                 requestBody = "";
             }

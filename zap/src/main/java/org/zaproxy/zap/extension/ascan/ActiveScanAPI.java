@@ -293,7 +293,7 @@ public class ActiveScanAPI extends ApiImplementor {
     @SuppressWarnings({"fallthrough"})
     @Override
     public ApiResponse handleApiAction(String name, JSONObject params) throws ApiException {
-        log.debug("handleApiAction " + name + " " + params.toString());
+        log.debug("handleApiAction {} {}", name, params);
         ScanPolicy policy;
         int categoryId;
 
@@ -351,7 +351,7 @@ public class ActiveScanAPI extends ApiImplementor {
                     try {
                         if (policyName != null && policyName.length() > 0) {
                             // Not specified, use the default one
-                            log.debug("handleApiAction scan policy =" + policyName);
+                            log.debug("handleApiAction scan policy ={}", policyName);
                             policy = controller.getPolicyManager().getPolicy(policyName);
                         }
                     } catch (ConfigurationException e) {
@@ -775,15 +775,28 @@ public class ActiveScanAPI extends ApiImplementor {
 
     private void setScannersEnabled(ScanPolicy policy, String[] ids, boolean enabled)
             throws ApiException {
+        List<String> unknownIds = null;
         try {
             for (String idString : ids) {
-                int id = Integer.parseInt(idString.trim());
-                Plugin scanner = getScannerFromId(policy, id, idString.trim());
-                scanner.setEnabled(enabled);
+                String idTrimmed = idString.trim();
+                int id = Integer.parseInt(idTrimmed);
+                Plugin scanner = policy.getPluginFactory().getPlugin(id);
+                if (scanner != null) {
+                    scanner.setEnabled(enabled);
+                } else {
+                    if (unknownIds == null) {
+                        unknownIds = new ArrayList<>();
+                    }
+                    unknownIds.add(idTrimmed);
+                }
             }
         } catch (NumberFormatException e) {
             log.warn("Failed to parse scanner ID: ", e);
             throw new ApiException(ApiException.Type.ILLEGAL_PARAMETER, e.getMessage(), e);
+        }
+
+        if (unknownIds != null) {
+            throw new ApiException(ApiException.Type.DOES_NOT_EXIST, "IDs: " + unknownIds);
         }
     }
 
@@ -1320,6 +1333,7 @@ public class ActiveScanAPI extends ApiImplementor {
             scannerData.put("policyId", String.valueOf(scanner.getCategory()));
             scannerData.put("enabled", String.valueOf(scanner.isEnabled()));
             scannerData.put("quality", scanner.getStatus().toString());
+            scannerData.put("status", scanner.getStatus().toString());
 
             boolean allDepsAvailable =
                     policy.getPluginFactory().hasAllDependenciesAvailable(scanner);

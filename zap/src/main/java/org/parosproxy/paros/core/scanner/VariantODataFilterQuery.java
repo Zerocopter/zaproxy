@@ -68,6 +68,13 @@ public class VariantODataFilterQuery implements Variant {
     /** Storage for the operation parameters */
     private Map<String, OperationParameter> mapParameters = Collections.emptyMap();
 
+    private static final String SHORT_NAME = "odatafilter";
+
+    @Override
+    public String getShortName() {
+        return SHORT_NAME;
+    }
+
     @Override
     public void setMessage(HttpMessage msg) {
         URI uri = msg.getRequestHeader().getURI();
@@ -129,7 +136,7 @@ public class VariantODataFilterQuery implements Variant {
             }
 
         } catch (URIException e) {
-            LOG.error(e.getMessage() + uri, e);
+            LOG.error("{} {}", e.getMessage(), uri, e);
         }
     }
 
@@ -164,7 +171,7 @@ public class VariantODataFilterQuery implements Variant {
                 msg.getRequestHeader().getURI().setQuery(modifiedQuery);
 
             } catch (URIException | NullPointerException e) {
-                LOG.error("Exception with the modified query " + modifiedQuery, e);
+                LOG.error("Exception with the modified query {}", modifiedQuery, e);
             }
 
             return newfilter;

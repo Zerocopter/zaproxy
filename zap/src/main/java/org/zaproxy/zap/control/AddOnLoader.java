@@ -52,6 +52,8 @@ import org.apache.commons.configuration.Configuration;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.FileConfiguration;
 import org.apache.commons.configuration.HierarchicalConfiguration;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.parosproxy.paros.Constant;
@@ -88,7 +90,7 @@ public class AddOnLoader extends URLClassLoader {
 
     /** A "null" object, for use when no callback is given during the uninstallation process. */
     private static final AddOnUninstallationProgressCallback NULL_CALLBACK =
-            new NullUninstallationProgressCallBack();
+            NullUninstallationProgressCallBack.getSingleton();
 
     private static final Logger logger = LogManager.getLogger(AddOnLoader.class);
 
@@ -127,6 +129,8 @@ public class AddOnLoader extends URLClassLoader {
     /** File where the data of runnable state and blocked add-ons is saved. */
     private ZapXmlConfiguration addOnsStateConfig;
 
+    private PostponedTasksRunner postponedTasks;
+
     public AddOnLoader(File[] dirs) {
         super(new URL[0], AddOnLoader.class.getClassLoader());
 
@@ -145,6 +149,8 @@ public class AddOnLoader extends URLClassLoader {
         this.loadBlockList();
 
         this.aoc = new AddOnCollection(dirs);
+        postponedTasks = new PostponedTasksRunner(addOnsStateConfig, aoc);
+        postponedTasks.run();
         loadAllAddOns();
 
         if (dirs != null) {
@@ -185,6 +191,8 @@ public class AddOnLoader extends URLClassLoader {
     }
 
     private void loadAllAddOns() {
+        AddOnInstaller.deleteLegacyAddOnLibsDir(aoc.getAddOns());
+
         for (Iterator<AddOn> iterator = aoc.getAddOns().iterator(); iterator.hasNext(); ) {
             AddOn addOn = iterator.next();
             if (canLoadAddOn(addOn)) {
@@ -260,27 +268,20 @@ public class AddOnLoader extends URLClassLoader {
 
     private boolean canLoadAddOn(AddOn ao) {
         if (blockList.contains(ao.getId())) {
-            if (logger.isDebugEnabled()) {
-                logger.debug(
-                        "Can't load add-on "
-                                + ao.getName()
-                                + " it's on the block list (add-on uninstalled but the file couldn't be removed).");
-            }
+            logger.debug(
+                    "Can't load add-on {} it is on the block list (add-on uninstalled but the file couldn't be removed).",
+                    ao.getName());
             return false;
         }
 
         if (!ao.canLoadInCurrentVersion()) {
-            if (logger.isDebugEnabled()) {
-                logger.debug(
-                        "Can't load add-on "
-                                + ao.getName()
-                                + " because of ZAP version constraints; Not before="
-                                + ao.getNotBeforeVersion()
-                                + " Not from="
-                                + ao.getNotFromVersion()
-                                + " Current Version="
-                                + Constant.PROGRAM_VERSION);
-            }
+            logger.debug(
+                    "Can't load add-on {} because of ZAP version constraints; Not before={} Not from={} Current Version={}",
+                    ao.getName(),
+                    ao.getNotBeforeVersion(),
+                    ao.getNotFromVersion(),
+                    Constant.PROGRAM_VERSION);
+
             return false;
         }
         return true;
@@ -292,10 +293,9 @@ public class AddOnLoader extends URLClassLoader {
         if (!reqs.isRunnable()) {
             if (logger.isDebugEnabled()) {
                 logger.debug(
-                        "Can't run add-on "
-                                + ao.getName()
-                                + " because of missing requirements: "
-                                + AddOnRunIssuesUtils.getRunningIssues(reqs));
+                        "Can't run add-on {} because of missing requirements: {}",
+                        ao.getName(),
+                        AddOnRunIssuesUtils.getRunningIssues(reqs));
             }
         }
         return reqs;
@@ -418,11 +418,11 @@ public class AddOnLoader extends URLClassLoader {
             return;
         }
         if (!dir.exists()) {
-            logger.debug("No such directory: " + dir.getAbsolutePath());
+            logger.debug("No such directory: {}", dir.getAbsolutePath());
             return;
         }
         if (!dir.isDirectory()) {
-            logger.warn("Not a directory: " + dir.getAbsolutePath());
+            logger.warn("Not a directory: {}", dir.getAbsolutePath());
             return;
         }
 
@@ -574,9 +574,11 @@ public class AddOnLoader extends URLClassLoader {
                         Extension ext =
                                 loadAddOnExtension(
                                         runningAddOn, extReqs.getClassname(), extAddOnClassLoader);
-                        AddOnInstaller.installAddOnExtension(runningAddOn, ext);
-                        runnableAddOns.get(runningAddOn).add(extReqs.getClassname());
-                        changed = true;
+                        if (ext != null) {
+                            AddOnInstaller.installAddOnExtension(runningAddOn, ext);
+                            runnableAddOns.get(runningAddOn).add(extReqs.getClassname());
+                            changed = true;
+                        }
                     }
                 }
             }
@@ -629,7 +631,8 @@ public class AddOnLoader extends URLClassLoader {
             if (runnableAddOns.remove(ao) != null) {
                 saveAddOnsRunState(runnableAddOns);
             }
-            AddOnInstaller.uninstallAddOnFiles(ao, NULL_CALLBACK, runnableAddOns.keySet());
+            AddOnInstaller.uninstallAddOnFiles(
+                    ao, NULL_CALLBACK, runnableAddOns.keySet(), postponedTasks);
             removeAddOnClassLoader(ao);
             deleteAddOn(ao, upgrading);
             ao.setInstallationStatus(AddOn.InstallationStatus.UNINSTALLATION_FAILED);
@@ -638,7 +641,7 @@ public class AddOnLoader extends URLClassLoader {
         }
 
         if (!this.aoc.includesAddOn(ao.getId())) {
-            logger.warn("Trying to uninstall an add-on that is not installed: " + ao.getId());
+            logger.warn("Trying to uninstall an add-on that is not installed: {}", ao.getId());
             return false;
         }
 
@@ -652,11 +655,18 @@ public class AddOnLoader extends URLClassLoader {
             return this.aoc.removeAddOn(ao);
         }
 
+        if (!canUnloadAllExtensions(ao)) {
+            logger.debug("Can't dynamically unload all the extensions of: {}", ao);
+            ao.setInstallationStatus(AddOn.InstallationStatus.UNINSTALLATION_FAILED);
+            postponedTasks.addUninstallAddOnTask(ao);
+            return false;
+        }
+
         unloadDependentExtensions(ao);
         softUninstallDependentAddOns(ao);
 
         boolean uninstalledWithoutErrors =
-                AddOnInstaller.uninstall(ao, callback, runnableAddOns.keySet());
+                AddOnInstaller.uninstall(ao, callback, runnableAddOns.keySet(), postponedTasks);
 
         if (uninstalledWithoutErrors && !this.aoc.removeAddOn(ao)) {
             uninstalledWithoutErrors = false;
@@ -681,6 +691,15 @@ public class AddOnLoader extends URLClassLoader {
         return uninstalledWithoutErrors;
     }
 
+    private static boolean canUnloadAllExtensions(AddOn ao) {
+        for (Extension e : ao.getLoadedExtensions()) {
+            if (e.isEnabled() && !e.canUnload()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * Deletes the file and libraries of the given add-on.
      *
@@ -696,7 +715,7 @@ public class AddOnLoader extends URLClassLoader {
 
         if (addOn.getFile() != null && addOn.getFile().exists()) {
             if (!addOn.getFile().delete() && !upgrading) {
-                logger.debug("Cant delete " + addOn.getFile().getAbsolutePath());
+                logger.debug("Can't delete {}", addOn.getFile().getAbsolutePath());
                 this.blockList.add(addOn.getId());
                 this.saveBlockList();
             }
@@ -711,8 +730,7 @@ public class AddOnLoader extends URLClassLoader {
                 }
                 ResourceBundle.clearCache(addOnClassLoader);
             } catch (Exception e) {
-                logger.error(
-                        "Failure while closing class loader of " + addOn.getId() + " add-on:", e);
+                logger.error("Failure while closing class loader of {} add-on:", addOn.getId(), e);
             }
             addOn.setClassLoader(null);
         }
@@ -734,9 +752,8 @@ public class AddOnLoader extends URLClassLoader {
                         ResourceBundle.clearCache(extensionClassLoader);
                     } catch (Exception e) {
                         logger.error(
-                                "Failure while closing class loader of extension '"
-                                        + classname
-                                        + "':",
+                                "Failure while closing class loader of extension '{}':",
+                                classname,
                                 e);
                     }
                     runnableAddOns.get(runningAddOn).remove(classname);
@@ -871,12 +888,10 @@ public class AddOnLoader extends URLClassLoader {
                     }
                 } else if (logger.isDebugEnabled()) {
                     logger.debug(
-                            "Can't run extension '"
-                                    + extReqs.getClassname()
-                                    + "' of add-on '"
-                                    + addOn.getName()
-                                    + "' because of missing requirements: "
-                                    + AddOnRunIssuesUtils.getRunningIssues(extReqs));
+                            "Can't run extension '{}' of add-on '{}' because of missing requirements: {}",
+                            extReqs.getClassname(),
+                            addOn.getName(),
+                            AddOnRunIssuesUtils.getRunningIssues(extReqs));
                 }
             }
         }
@@ -929,7 +944,24 @@ public class AddOnLoader extends URLClassLoader {
             }
         }
         list.trimToSize();
+        validateNames(list);
         return Collections.unmodifiableList(list);
+    }
+
+    private void validateNames(List<?> scanRules) {
+        scanRules.forEach(
+                rule -> {
+                    String name =
+                            rule instanceof AbstractPlugin
+                                    ? ((AbstractPlugin) rule).getName()
+                                    : ((PluginPassiveScanner) rule).getName();
+                    if (StringUtils.isBlank(name)) {
+                        logger.log(
+                                Constant.isDevBuild() ? Level.ERROR : Level.WARN,
+                                "Scan rule {} does not have a name.",
+                                rule.getClass().getCanonicalName());
+                    }
+                });
     }
 
     /**
@@ -951,6 +983,7 @@ public class AddOnLoader extends URLClassLoader {
             }
         }
         list.trimToSize();
+        validateNames(list);
         return Collections.unmodifiableList(list);
     }
 
@@ -1106,7 +1139,7 @@ public class AddOnLoader extends URLClassLoader {
                 }
             }
         } catch (Exception e) {
-            logger.error("Failed to open file: " + file.getAbsolutePath(), e);
+            logger.error("Failed to open file: {}", file.getAbsolutePath(), e);
         }
         return classNames;
     }
@@ -1129,7 +1162,7 @@ public class AddOnLoader extends URLClassLoader {
                 }
             }
         } catch (Exception e) {
-            logger.error("Failed to open file: " + ao.getFile().getAbsolutePath(), e);
+            logger.error("Failed to open file: {}", ao.getFile().getAbsolutePath(), e);
         }
         return classNames;
     }
@@ -1209,7 +1242,7 @@ public class AddOnLoader extends URLClassLoader {
         try {
             config.save();
         } catch (ConfigurationException e) {
-            logger.error("Failed to save list [" + key + "]: " + sb.toString(), e);
+            logger.error("Failed to save list [{}]: {}", key, sb, e);
         }
     }
 
@@ -1262,29 +1295,21 @@ public class AddOnLoader extends URLClassLoader {
         try {
             return new Version(version);
         } catch (IllegalArgumentException e) {
-            if (logger.isDebugEnabled()) {
-                logger.debug(
-                        "Failed to create (legacy?) version with ["
-                                + version
-                                + "] for runnable add-on ["
-                                + addOnName
-                                + "]",
-                        e);
-            }
+            logger.debug(
+                    "Failed to create (legacy?) version with [{}] for runnable add-on [{}]",
+                    version,
+                    addOnName,
+                    e);
         }
 
         try {
             return new Version(version + ".0.0");
         } catch (IllegalArgumentException e) {
-            if (logger.isDebugEnabled()) {
-                logger.debug(
-                        "Failed to create legacy version with ["
-                                + version
-                                + ".0.0] for runnable add-on ["
-                                + addOnName
-                                + "]",
-                        e);
-            }
+            logger.debug(
+                    "Failed to create legacy version with [{}.0.0] for runnable add-on [{}]",
+                    version,
+                    addOnName,
+                    e);
         }
 
         return null;
@@ -1362,44 +1387,6 @@ public class AddOnLoader extends URLClassLoader {
             dataMigrated = true;
         }
         return dataMigrated;
-    }
-
-    /**
-     * An {@code UninstallationProgressCallback} that does nothing. A "{@code null}" object, for use
-     * when no callback is given during the uninstallation process.
-     */
-    private static class NullUninstallationProgressCallBack
-            implements AddOnUninstallationProgressCallback {
-
-        @Override
-        public void uninstallingAddOn(AddOn addOn, boolean updating) {}
-
-        @Override
-        public void activeScanRulesWillBeRemoved(int numberOfRules) {}
-
-        @Override
-        public void activeScanRuleRemoved(String name) {}
-
-        @Override
-        public void passiveScanRulesWillBeRemoved(int numberOfRules) {}
-
-        @Override
-        public void passiveScanRuleRemoved(String name) {}
-
-        @Override
-        public void filesWillBeRemoved(int numberOfFiles) {}
-
-        @Override
-        public void fileRemoved() {}
-
-        @Override
-        public void extensionsWillBeRemoved(int numberOfExtensions) {}
-
-        @Override
-        public void extensionRemoved(String name) {}
-
-        @Override
-        public void addOnUninstalled(boolean uninstalled) {}
     }
 
     private static class AddOnRunState {

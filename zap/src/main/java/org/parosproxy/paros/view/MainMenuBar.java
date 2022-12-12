@@ -43,6 +43,8 @@
 // ZAP: 2021/05/14 Remove redundant type arguments.
 // ZAP: 2021/12/30 Disable snapshot menu item if session not already persisted, add tooltip to
 // disabled menu item (Issue 6938).
+// ZAP: 2022/03/12 Add open recent menu
+// ZAP: 2022/08/05 Address warns with Java 18 (Issue 7389).
 package org.parosproxy.paros.view;
 
 import java.awt.event.ActionEvent;
@@ -69,6 +71,7 @@ import org.zaproxy.zap.view.AboutDialog;
 import org.zaproxy.zap.view.ZapMenuItem;
 import org.zaproxy.zap.view.ZapSupportDialog;
 
+@SuppressWarnings("serial")
 public class MainMenuBar extends JMenuBar {
 
     private static final long serialVersionUID = 8580116506279095244L;
@@ -81,6 +84,7 @@ public class MainMenuBar extends JMenuBar {
     private javax.swing.JMenu menuImport = null;
     private ZapMenuItem menuToolsOptions = null;
     private javax.swing.JMenu menuFile = null;
+    private JMenu menuFileOpenRecent;
     private ZapMenuItem menuFileNewSession = null;
     private ZapMenuItem menuFileOpen = null;
     private ZapMenuItem menuFileSaveAs = null;
@@ -256,6 +260,7 @@ public class MainMenuBar extends JMenuBar {
             menuFile.setMnemonic(Constant.messages.getChar("menu.file.mnemonic"));
             menuFile.add(getMenuFileNewSession());
             menuFile.add(getMenuFileOpen());
+            menuFile.add(getMenuFileOpenRecent());
             menuFile.addSeparator();
             menuFile.add(getMenuFileSaveAs());
             menuFile.add(getMenuFileSnapshot());
@@ -285,9 +290,6 @@ public class MainMenuBar extends JMenuBar {
                         public void actionPerformed(java.awt.event.ActionEvent e) {
                             try {
                                 getMenuFileControl().newSession(true);
-                                if (Model.getSingleton().getSession().isNewState()) {
-                                    toggleSnapshotState(false);
-                                }
                             } catch (Exception e1) {
                                 View.getSingleton()
                                         .showWarningDialog(
@@ -312,13 +314,31 @@ public class MainMenuBar extends JMenuBar {
                         @Override
                         public void actionPerformed(java.awt.event.ActionEvent e) {
                             getMenuFileControl().openSession();
-                            if (!Model.getSingleton().getSession().isNewState()) {
-                                toggleSnapshotState(true);
-                            }
                         }
                     });
         }
         return menuFileOpen;
+    }
+
+    private JMenu getMenuFileOpenRecent() {
+        if (menuFileOpenRecent == null) {
+            menuFileOpenRecent = new JMenu();
+            menuFileOpenRecent.setText(Constant.messages.getString("menu.file.openRecent"));
+            refreshMenuFileOpenRecent();
+        }
+        return menuFileOpenRecent;
+    }
+
+    private void refreshMenuFileOpenRecent() {
+        menuFileOpenRecent.removeAll();
+
+        for (String session :
+                Model.getSingleton().getOptionsParam().getViewParam().getRecentSessions()) {
+            JMenuItem menuItem = new JMenuItem(session);
+            menuItem.addActionListener(e -> getMenuFileControl().openSession(session));
+            menuFileOpenRecent.add(menuItem);
+        }
+        menuFileOpenRecent.setEnabled(menuFileOpenRecent.getMenuComponentCount() != 0);
     }
 
     private JMenuItem getMenuFileSaveAs() {
@@ -335,9 +355,6 @@ public class MainMenuBar extends JMenuBar {
                                         .showWarningDialog(
                                                 Constant.messages.getString(
                                                         "menu.file.sessionExists.error"));
-                            }
-                            if (!Model.getSingleton().getSession().isNewState()) {
-                                toggleSnapshotState(true);
                             }
                         }
                     });
@@ -555,7 +572,9 @@ public class MainMenuBar extends JMenuBar {
     public void sessionChanged(Session session) {
         if (session != null) {
             this.getMenuFileSaveAs().setEnabled(session.isNewState());
-            this.getMenuFileSnapshot().setEnabled(!session.isNewState());
+            toggleSnapshotState(!session.isNewState());
+
+            refreshMenuFileOpenRecent();
         }
     }
 

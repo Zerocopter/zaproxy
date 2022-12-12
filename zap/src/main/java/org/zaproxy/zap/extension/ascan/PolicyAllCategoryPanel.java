@@ -66,6 +66,7 @@ import org.zaproxy.zap.utils.DisplayUtils;
 import org.zaproxy.zap.utils.ZapTextField;
 import org.zaproxy.zap.view.LayoutHelper;
 
+@SuppressWarnings("serial")
 public class PolicyAllCategoryPanel extends AbstractParamPanel {
 
     // private static final String ILLEGAL_CHRS = "/`?*\\<>|\":\t\n\r";
@@ -354,7 +355,7 @@ public class PolicyAllCategoryPanel extends AbstractParamPanel {
      */
     private JComboBox<String> createStatusComboBox() {
         JComboBox<String> comboBox = new JComboBox<>();
-        comboBox.addItem(Constant.messages.getString("ascan.policy.table.quality.all"));
+        comboBox.addItem(Constant.messages.getString("ascan.policy.table.status.all"));
         View view = View.getSingleton();
         comboBox.addItem(view.getStatusUI(AddOn.Status.release).toString());
         comboBox.addItem(view.getStatusUI(AddOn.Status.beta).toString());
@@ -381,7 +382,7 @@ public class PolicyAllCategoryPanel extends AbstractParamPanel {
      * @see Plugin#getStatus()
      */
     private boolean hasSameStatus(Plugin scanner, String status) {
-        if (status.equals(Constant.messages.getString("ascan.policy.table.quality.all"))) {
+        if (status.equals(Constant.messages.getString("ascan.policy.table.status.all"))) {
             return true;
         }
         return status.equals(View.getSingleton().getStatusUI(scanner.getStatus()).toString());
@@ -534,7 +535,8 @@ public class PolicyAllCategoryPanel extends AbstractParamPanel {
 
         } else if (!newName.equals(currentName)) {
             // Name changed
-            if (extension.getPolicyManager().getAllPolicyNames().contains(newName)) {
+            if (extension.getPolicyManager().getAllPolicyNames().stream()
+                    .anyMatch(newName::equalsIgnoreCase)) {
                 getPolicyName().requestFocusInWindow();
                 throw new Exception(Constant.messages.getString("ascan.policy.warn.exists"));
             }
