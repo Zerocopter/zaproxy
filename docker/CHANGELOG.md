@@ -1,6 +1,18 @@
 # Changelog
 All notable changes to the docker containers will be documented in this file.
 
+### 2023-02-03
+ - Alert_on_Unexpected_Content_Types.js > Added Content-Type application/hal+json to the list of expected types.
+
+### 2023-01-27
+ - Updated to use Webswing 22.2.4 (Issue 7704).
+
+### 2023-01-10
+- Rework Docker build files to not leave cached files and to not do unnecessary work.
+
+### 2022-12-16
+ - Changed the UID and GID of the `zap` user to 1000 (Issue 7655).
+
 ### 2022-12-05
  - Changed all images to use debian:bullseye-slim instead of unstable-slim.
 

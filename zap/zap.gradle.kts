@@ -9,7 +9,7 @@ plugins {
     `java-library`
     jacoco
     id("me.champeau.gradle.japicmp")
-    id("org.zaproxy.crowdin") version "0.2.1"
+    id("org.zaproxy.crowdin") version "0.3.1"
     org.zaproxy.zap.distributions
     org.zaproxy.zap.installers
     org.zaproxy.zap.`github-releases`
@@ -50,10 +50,6 @@ crowdin {
     }
 }
 
-jacoco {
-    toolVersion = "0.8.8"
-}
-
 tasks.named<JacocoReport>("jacocoTestReport") {
     reports {
         xml.required.set(true)
@@ -61,7 +57,7 @@ tasks.named<JacocoReport>("jacocoTestReport") {
 }
 
 dependencies {
-    api("com.fifesoft:rsyntaxtextarea:3.3.0")
+    api("com.fifesoft:rsyntaxtextarea:3.3.2")
     api("com.github.zafarkhaja:java-semver:0.9.0")
     api("commons-beanutils:commons-beanutils:1.9.4")
     api("commons-codec:commons-codec:1.15")
@@ -86,7 +82,7 @@ dependencies {
     api("org.jgrapht:jgrapht-core:0.9.0")
     api("org.swinglabs.swingx:swingx-all:1.6.5-1")
 
-    implementation("com.formdev:flatlaf:2.6")
+    implementation("com.formdev:flatlaf:3.0")
 
     runtimeOnly("commons-logging:commons-logging:1.2")
     runtimeOnly("xom:xom:1.3.8") {
@@ -94,11 +90,11 @@ dependencies {
     }
 
     testImplementation("org.hamcrest:hamcrest-core:2.2")
-    val jupiterVersion = "5.9.0"
+    val jupiterVersion = "5.9.2"
     testImplementation("org.junit.jupiter:junit-jupiter-api:$jupiterVersion")
     testImplementation("org.junit.jupiter:junit-jupiter-params:$jupiterVersion")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$jupiterVersion")
-    testImplementation("org.mockito:mockito-junit-jupiter:4.8.0")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.1.1")
     testImplementation("org.apache.logging.log4j:log4j-slf4j-impl:$log4jVersion")
 
     testRuntimeOnly(files(distDir))
@@ -126,7 +122,7 @@ listOf("jar", "jarDaily").forEach {
             "Main-Class" to "org.zaproxy.zap.ZAP",
             "Implementation-Version" to ToString({ archiveVersion.get() }),
             "Create-Date" to creationDate,
-            "Class-Path" to ToString({ configurations.runtimeClasspath.get().files.stream().map { file -> "lib/${file.name}" }.sorted().collect(Collectors.joining(" ")) })
+            "Class-Path" to ToString({ configurations.runtimeClasspath.get().files.stream().map { file -> "lib/${file.name}" }.sorted().collect(Collectors.joining(" ")) }),
         )
 
         manifest {
@@ -149,15 +145,15 @@ val japicmp by tasks.registering(JapicmpTask::class) {
 
     classExcludes.set(
         listOf(
-            "org.zaproxy.zap.network.HttpSenderImpl"
-        )
+            "org.zaproxy.zap.network.HttpSenderImpl",
+        ),
     )
 
     methodExcludes.set(
         listOf(
             "org.parosproxy.paros.extension.ViewDelegate#getOptionsButton(java.lang.String, java.lang.String)",
-            "org.parosproxy.paros.extension.ViewDelegate#getHelpButton(java.lang.String)"
-        )
+            "org.parosproxy.paros.extension.ViewDelegate#getHelpButton(java.lang.String)",
+        ),
     )
 
     richReport {
@@ -238,7 +234,7 @@ listOf(
     "org.zaproxy.zap.extension.api.PhpAPIGenerator",
     "org.zaproxy.zap.extension.api.PythonAPIGenerator",
     "org.zaproxy.zap.extension.api.RustAPIGenerator",
-    "org.zaproxy.zap.extension.api.WikiAPIGenerator"
+    "org.zaproxy.zap.extension.api.WikiAPIGenerator",
 ).forEach {
     val langName = it.removePrefix("org.zaproxy.zap.extension.api.").removeSuffix("APIGenerator")
     val task = tasks.register<JavaExec>("generate${langName}ApiEndpoints") {
