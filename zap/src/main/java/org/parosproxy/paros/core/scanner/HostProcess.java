@@ -105,6 +105,7 @@
 // ZAP: 2022/05/30 Remove deprecation usage.
 // ZAP: 2022/09/21 Use format specifiers instead of concatenation when logging.
 // ZAP: 2023/01/10 Tidy up logger.
+// ZAP: 2023/05/17 Skip rules that reach the maximum number of alerts.
 package org.parosproxy.paros.core.scanner;
 
 import java.io.IOException;
@@ -391,7 +392,7 @@ public class HostProcess implements Runnable {
                 plugin = pluginFactory.nextPlugin();
 
                 if (plugin != null) {
-                    plugin.setDelayInMs(this.scannerParam.getDelayInMs());
+                    applyDeprecatedProperties(scannerParam, plugin);
                     plugin.setTechSet(this.techSet);
                     processPlugin(plugin);
 
@@ -632,7 +633,7 @@ public class HostProcess implements Runnable {
                     test.getConfig().setProperty(rc.getKey(), rc.getValue());
                 }
             }
-            test.setDelayInMs(plugin.getDelayInMs());
+            applyDeprecatedProperties(plugin, test);
             test.setDefaultAlertThreshold(plugin.getAlertThreshold());
             test.setDefaultAttackStrength(plugin.getAttackStrength());
             test.setTechSet(getTechSet());
@@ -659,6 +660,16 @@ public class HostProcess implements Runnable {
 
         mapPluginStats.get(plugin.getId()).incProgress();
         return true;
+    }
+
+    @SuppressWarnings("removal")
+    private static void applyDeprecatedProperties(ScannerParam source, Plugin dest) {
+        dest.setDelayInMs(source.getDelayInMs());
+    }
+
+    @SuppressWarnings("removal")
+    private static void applyDeprecatedProperties(Plugin source, Plugin dest) {
+        dest.setDelayInMs(source.getDelayInMs());
     }
 
     private boolean obtainResponse(HistoryReference hRef, HttpMessage message) {
@@ -741,7 +752,9 @@ public class HostProcess implements Runnable {
         return pluginStats.getProgress();
     }
 
-    /** @return Returns the httpSender. */
+    /**
+     * @return Returns the httpSender.
+     */
     public HttpSender getHttpSender() {
         return httpSender;
     }
@@ -883,6 +896,14 @@ public class HostProcess implements Runnable {
         PluginStats pluginStats = mapPluginStats.get(alert.getPluginId());
         if (pluginStats != null) {
             pluginStats.incAlertCount();
+
+            int maxAlertsPerRule = scannerParam.getMaxAlertsPerRule();
+            if (maxAlertsPerRule > 0 && pluginStats.getAlertCount() >= maxAlertsPerRule) {
+                pluginSkipped(
+                        alert.getPluginId(),
+                        Constant.messages.getString(
+                                "ascan.progress.label.skipped.reason.maxAlertsPerRule"));
+            }
         }
         alertCount++;
     }

@@ -27,6 +27,7 @@ import java.util.Locale;
 import org.apache.commons.httpclient.URI;
 import org.parosproxy.paros.Constant;
 import org.parosproxy.paros.model.Model;
+import org.parosproxy.paros.network.HttpHeader;
 import org.zaproxy.zap.extension.api.API.Format;
 import org.zaproxy.zap.extension.api.API.RequestType;
 
@@ -243,7 +244,13 @@ public class WebUI {
                     sb.append(Constant.messages.getString(descTag));
                 }
 
-                sb.append("\n<form id=\"zapform\" name=\"zapform\" action=\"override\">");
+                sb.append("\n<form id=\"zapform\" name=\"zapform\" action=\"override\"");
+                if (element.getName().equals("fileUpload")) {
+                    sb.append(" enctype=\"");
+                    sb.append(HttpHeader.FORM_MULTIPART_CONTENT_TYPE);
+                    sb.append('"');
+                }
+                sb.append('>');
                 sb.append("<table>\n");
                 if (!RequestType.other.equals(reqType)) {
                     sb.append("<tr><td>");
@@ -312,8 +319,18 @@ public class WebUI {
                     sb.append("</td>");
                     sb.append("<td>");
                     sb.append("<select id=\"formMethod\">\n");
-                    sb.append("<option value=\"GET\" selected>GET</option>\n");
-                    sb.append("<option value=\"POST\">POST</option>\n");
+                    String getSelected = " selected";
+                    String postSelected = "";
+                    if (element.getName().equals("fileUpload")) {
+                        getSelected = "";
+                        postSelected = " selected";
+                    }
+                    sb.append("<option value=\"GET\"");
+                    sb.append(getSelected);
+                    sb.append(">GET</option>\n");
+                    sb.append("<option value=\"POST\"");
+                    sb.append(postSelected);
+                    sb.append(">POST</option>\n");
                     sb.append("</select>\n");
                     sb.append("</td>");
                     sb.append("<td></td>");
@@ -453,7 +470,11 @@ public class WebUI {
             sb.append(param.getName());
             sb.append("\" name=\"");
             sb.append(param.getName());
-            sb.append("\"/>");
+            sb.append("\"");
+            if (param.getName().equals("fileContents")) {
+                sb.append(" type=\"file\"");
+            }
+            sb.append("/>");
             sb.append("</td><td>");
             String descKey = param.getDescriptionKey();
             if (Constant.messages.containsKey(descKey)) {

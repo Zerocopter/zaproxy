@@ -65,8 +65,6 @@ import org.parosproxy.paros.model.HistoryReference;
 import org.parosproxy.paros.network.HttpMessage;
 import org.zaproxy.zap.extension.pscan.ExtensionPassiveScan;
 import org.zaproxy.zap.extension.pscan.PluginPassiveScanner;
-import org.zaproxy.zap.model.Vulnerabilities;
-import org.zaproxy.zap.model.Vulnerability;
 import org.zaproxy.zap.utils.DisplayUtils;
 import org.zaproxy.zap.utils.FontUtils;
 import org.zaproxy.zap.utils.ZapLabel;
@@ -109,6 +107,8 @@ public class AlertViewPanel extends AbstractPanel {
     private ZapLabel alertCweId = null;
     private ZapLabel alertWascId = null;
     private ZapLabel alertSource;
+    private JLabel alertRefLabel;
+    private ZapLabel alertRef;
 
     private JComboBox<String> alertEditName = null;
     private JComboBox<String> alertEditRisk = null;
@@ -137,7 +137,6 @@ public class AlertViewPanel extends AbstractPanel {
 
     private boolean editable = false;
     private Alert originalAlert = null;
-    private List<Vulnerability> vulnerabilities = null;
 
     private HistoryReference historyRef = null;
 
@@ -221,9 +220,10 @@ public class AlertViewPanel extends AbstractPanel {
             alertEditName.addActionListener(
                     new ActionListener() {
                         @Override
+                        @SuppressWarnings("removal")
                         public void actionPerformed(ActionEvent e) {
                             if ("comboBoxChanged".equals(e.getActionCommand())) {
-                                Vulnerability v =
+                                org.zaproxy.zap.model.Vulnerability v =
                                         getVulnerability((String) alertEditName.getSelectedItem());
                                 if (v != null) {
                                     if (v.getDescription() != null
@@ -291,6 +291,11 @@ public class AlertViewPanel extends AbstractPanel {
             alertWascId = new ZapLabel();
             alertSource = new ZapLabel();
             alertSource.setLineWrap(true);
+
+            alertRefLabel = new JLabel(Constant.messages.getString("alert.label.alertRef"));
+            alertRef = new ZapLabel();
+            alertRef.setLineWrap(true);
+            alertRefLabel.setLabelFor(alertRef);
 
             alertUrl = new ZapLabel();
             alertUrl.setLineWrap(true);
@@ -408,6 +413,10 @@ public class AlertViewPanel extends AbstractPanel {
                 alertDisplay.add(
                         getSourceLabel(), LayoutHelper.getGBC(0, gbcRow, 1, 0, DEFAULT_INSETS));
                 alertDisplay.add(alertSource, LayoutHelper.getGBC(1, gbcRow, 1, 1, DEFAULT_INSETS));
+                gbcRow++;
+                alertDisplay.add(
+                        alertRefLabel, LayoutHelper.getGBC(0, gbcRow, 1, 0, DEFAULT_INSETS));
+                alertDisplay.add(alertRef, LayoutHelper.getGBC(1, gbcRow, 1, 1, DEFAULT_INSETS));
                 gbcRow++;
                 alertDisplay.add(
                         getInputVectorLabel(),
@@ -588,6 +597,15 @@ public class AlertViewPanel extends AbstractPanel {
             alertCweId.setText(normalisedId(alert.getCweId()));
             alertWascId.setText(normalisedId(alert.getWascId()));
             alertSource.setText(getSourceData(alert));
+            boolean showAlertRef = true;
+            if (String.valueOf(alert.getPluginId()).equals(alert.getAlertRef())) {
+                alertRef.setText("");
+                showAlertRef = false;
+            } else {
+                alertRef.setText(alert.getAlertRef());
+            }
+            alertRefLabel.setVisible(showAlertRef);
+            alertRef.setVisible(showAlertRef);
         }
 
         setAlertDescription(alert.getDescription());
@@ -661,6 +679,7 @@ public class AlertViewPanel extends AbstractPanel {
         alertSolution.setText("");
         alertReference.setText("");
         alertSource.setText("");
+        alertRef.setText("");
         alertInputVector.setText("");
         setAlertTags(Collections.emptyMap());
 
@@ -832,19 +851,14 @@ public class AlertViewPanel extends AbstractPanel {
         return editable;
     }
 
-    private List<Vulnerability> getAllVulnerabilities() {
-        if (vulnerabilities == null) {
-            vulnerabilities = Vulnerabilities.getAllVulnerabilities();
-        }
-        return vulnerabilities;
-    }
-
-    private Vulnerability getVulnerability(String alert) {
+    @SuppressWarnings("removal")
+    private org.zaproxy.zap.model.Vulnerability getVulnerability(String alert) {
         if (alert == null) {
             return null;
         }
-        List<Vulnerability> vulns = this.getAllVulnerabilities();
-        for (Vulnerability v : vulns) {
+        List<org.zaproxy.zap.model.Vulnerability> vulns =
+                org.zaproxy.zap.model.Vulnerabilities.getAllVulnerabilities();
+        for (org.zaproxy.zap.model.Vulnerability v : vulns) {
             if (alert.equals(v.getAlert())) {
                 return v;
             }
@@ -852,10 +866,12 @@ public class AlertViewPanel extends AbstractPanel {
         return null;
     }
 
+    @SuppressWarnings("removal")
     private List<String> getAllVulnerabilityNames() {
-        List<Vulnerability> vulns = this.getAllVulnerabilities();
+        List<org.zaproxy.zap.model.Vulnerability> vulns =
+                org.zaproxy.zap.model.Vulnerabilities.getAllVulnerabilities();
         List<String> names = new ArrayList<>(vulns.size());
-        for (Vulnerability v : vulns) {
+        for (org.zaproxy.zap.model.Vulnerability v : vulns) {
             names.add(v.getAlert());
         }
         Collections.sort(names);

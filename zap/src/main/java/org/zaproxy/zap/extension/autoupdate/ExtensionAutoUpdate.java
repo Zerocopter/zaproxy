@@ -139,13 +139,10 @@ public class ExtensionAutoUpdate extends ExtensionAdaptor
     private CommandLineArgument[] arguments = new CommandLineArgument[ARG_IDXS.length];
     private Supplier<ZapXmlConfiguration> checkForUpdatesSupplier;
 
+    @SuppressWarnings("deprecation")
     public ExtensionAutoUpdate() {
         super();
-        initialize();
-    }
 
-    /** This method initializes this */
-    private void initialize() {
         this.setName(NAME);
         this.setOrder(1); // High order so that cmdline updates are installed asap
         this.downloadManager = new DownloadManager(HttpSender.CHECK_FOR_UPDATES_INITIATOR);
@@ -558,8 +555,7 @@ public class ExtensionAutoUpdate extends ExtensionAdaptor
                         @Override
                         public void run() {
                             while (downloadManager.getCurrentDownloadCount() > 0) {
-                                getScanStatus()
-                                        .setScanCount(downloadManager.getCurrentDownloadCount());
+                                updateScanCount(downloadManager.getCurrentDownloadCount());
                                 if (addonsDialog != null && addonsDialog.isVisible()) {
                                     addonsDialog.showProgress();
                                 }
@@ -573,13 +569,19 @@ public class ExtensionAutoUpdate extends ExtensionAdaptor
                             if (addonsDialog != null) {
                                 addonsDialog.showProgress();
                             }
-                            getScanStatus().setScanCount(0);
+                            updateScanCount(0);
                             installNewExtensions();
                         }
                     };
             this.installsOk = true;
             this.installsCompleted = false;
             this.downloadProgressThread.start();
+        }
+    }
+
+    private void updateScanCount(int count) {
+        if (hasView()) {
+            getScanStatus().setScanCount(count);
         }
     }
 
@@ -712,7 +714,7 @@ public class ExtensionAutoUpdate extends ExtensionAdaptor
                     new ScanStatus(
                             new ImageIcon(
                                     ExtensionAutoUpdate.class.getResource(
-                                            "/resource/icon/fugue/download.png")),
+                                            "/resource/icon/download.png")),
                             Constant.messages.getString("cfu.downloads.icon.title"));
         }
         return scanStatus;

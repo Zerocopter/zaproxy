@@ -34,7 +34,7 @@ import javax.swing.JOptionPane;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import org.apache.commons.configuration.ConfigurationException;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdesktop.swingx.JXErrorPane;
@@ -210,6 +210,7 @@ public class GuiBootstrap extends ZapBootstrap {
                                 warnAddOnsAndExtensionsNoLongerRunnable();
 
                                 HeadlessBootstrap.checkForUpdates();
+                                recordStartStats();
                             }
                         });
         bootstrap.setName("ZAP-BootstrapGUI");

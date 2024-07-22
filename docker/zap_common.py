@@ -50,8 +50,8 @@ class ScanNotStartedException(Exception):
 class UserInputException(Exception):
     pass
 
-OLD_ZAP_CLIENT_WARNING = '''A newer version of python_owasp_zap_v2.4
- is available. Please run \'pip install -U python_owasp_zap_v2.4\' to update to
+OLD_ZAP_CLIENT_WARNING = '''A newer version of zaproxy is available.
+ Please run \'pip install -U zaproxy\' to update to
  the latest version.'''.replace('\n', '')
 
 zap_conf_lvls = ["PASS", "IGNORE", "INFO", "WARN", "FAIL"]
@@ -152,7 +152,12 @@ def load_config(config, config_dict, config_msg, out_of_scope_dict):
     out_of_scope_dict - a dictionary which maps plugin_ids to out of scope regexes
     """
     for line in config:
-        if not line.startswith('#') and len(line) > 1:
+        if line.startswith('#') or len(line.strip()) == 0:
+          # Ignore
+          pass
+        elif line.count('\t') < 2:
+          raise ValueError("Unexpected number of tokens on line - there should be at least 3, tab separated: {0}".format(line))
+        else:
             (key, val, optional) = line.rstrip().split('\t', 2)
             if val == 'OUTOFSCOPE':
                 for plugin_id in key.split(','):
@@ -524,7 +529,7 @@ def get_latest_zap_client_version():
     version_info = None
 
     try:
-        version_info = urlopen('https://pypi.python.org/pypi/python-owasp-zap-v2.4/json', timeout=10)
+        version_info = urlopen('https://pypi.python.org/pypi/zaproxy/json', timeout=10)
     except Exception as e:
         logging.warning('Error fetching latest ZAP Python API client version: %s' % e)
         return None

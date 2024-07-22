@@ -44,7 +44,9 @@ import org.zaproxy.zap.model.Target;
 import org.zaproxy.zap.users.User;
 import org.zaproxy.zap.utils.Stats;
 
-/** @deprecated (2.12.0) See the spider add-on in zap-extensions instead. */
+/**
+ * @deprecated (2.12.0) See the spider add-on in zap-extensions instead.
+ */
 @Deprecated
 public class SpiderScan
         implements ScanListenner, org.zaproxy.zap.spider.SpiderListener, GenericScanner2 {
@@ -88,7 +90,7 @@ public class SpiderScan
      *
      * <p>The counter is incremented when a new URI is found.
      *
-     * @see #foundURI(String, String, FetchStatus)
+     * @see #foundURI(String, String, org.zaproxy.zap.spider.filters.FetchFilter.FetchStatus)
      * @see #getNumberOfURIsFound()
      */
     private AtomicInteger numberOfURIsFound;
@@ -117,7 +119,7 @@ public class SpiderScan
      * <p>Lazily initialised.
      *
      * @see #getMessagesTableModel()
-     * @see #addMessageToMessagesTableModel(SpiderTaskResult)
+     * @see #addMessageToMessagesTableModel(org.zaproxy.zap.spider.SpiderTaskResult)
      */
     private SpiderMessagesTableModel messagesTableModel;
 

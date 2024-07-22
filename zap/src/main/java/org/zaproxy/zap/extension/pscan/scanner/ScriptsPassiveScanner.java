@@ -34,6 +34,8 @@ import org.zaproxy.zap.extension.script.ScriptWrapper;
 import org.zaproxy.zap.extension.script.ScriptsCache;
 import org.zaproxy.zap.extension.script.ScriptsCache.Configuration;
 
+@Deprecated(since = "2.15.0", forRemoval = true)
+@SuppressWarnings("removal")
 public class ScriptsPassiveScanner extends PluginPassiveScanner {
 
     private static final Logger LOGGER = LogManager.getLogger(ScriptsPassiveScanner.class);
@@ -115,7 +117,9 @@ public class ScriptsPassiveScanner extends PluginPassiveScanner {
         }
     }
 
-    /** @since 2.9.0 */
+    /**
+     * @since 2.9.0
+     */
     @Override
     public AlertBuilder newAlert() {
         return super.newAlert();
@@ -195,7 +199,9 @@ public class ScriptsPassiveScanner extends PluginPassiveScanner {
                 .raise();
     }
 
-    /** @deprecated 2.12.0 Replaced by {@link #addHistoryTag(String)} */
+    /**
+     * @deprecated 2.12.0 Replaced by {@link #addHistoryTag(String)}
+     */
     @Override
     @Deprecated
     public void addTag(String tag) {

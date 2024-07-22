@@ -30,7 +30,9 @@ import org.zaproxy.zap.model.Context;
 import org.zaproxy.zap.model.StructuralNodeModifier;
 import org.zaproxy.zap.view.ContextStructurePanel;
 
-/** @since 2.4.3 */
+/**
+ * @since 2.4.3
+ */
 @SuppressWarnings("serial")
 public class PopupMenuItemContextDataDrivenNode extends PopupMenuItemSiteNodeContainer {
 
@@ -46,6 +48,11 @@ public class PopupMenuItemContextDataDrivenNode extends PopupMenuItemSiteNodeCon
     @Override
     public String getParentMenuName() {
         return Constant.messages.getString("context.flag.popup");
+    }
+
+    @Override
+    public int getParentWeight() {
+        return MenuWeights.MENU_FLAG_CONTEXT_WEIGHT;
     }
 
     @Override

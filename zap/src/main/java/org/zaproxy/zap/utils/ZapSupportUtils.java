@@ -19,16 +19,26 @@
  */
 package org.zaproxy.zap.utils;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import javax.swing.LookAndFeel;
 import javax.swing.UIManager;
-import org.apache.commons.lang.WordUtils;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.text.WordUtils;
 import org.parosproxy.paros.Constant;
+import org.zaproxy.zap.ZAP;
 import org.zaproxy.zap.control.AddOn;
 import org.zaproxy.zap.control.AddOnLoader;
 import org.zaproxy.zap.control.ExtensionFactory;
@@ -89,6 +99,30 @@ public final class ZapSupportUtils {
         return Constant.messages.getString("support.arch.label")
                 + " "
                 + System.getProperty("os.arch");
+    }
+
+    /**
+     * Gets the number of CPU cores.
+     *
+     * @return the number of cores.
+     * @since 2.15.0
+     */
+    public static String getCpuCores() {
+        return Constant.messages.getString("support.cpucores.label")
+                + " "
+                + Runtime.getRuntime().availableProcessors();
+    }
+
+    /**
+     * Gets the maximum memory of the JVM.
+     *
+     * @return the max memory.
+     * @since 2.15.0
+     */
+    public static String getMaxMemory() {
+        return Constant.messages.getString("support.maxmem.label")
+                + " "
+                + FileUtils.byteCountToDisplaySize(Runtime.getRuntime().maxMemory());
     }
 
     public static String getJavaVersionVendor() {
@@ -175,6 +209,8 @@ public final class ZapSupportUtils {
         supportDetailsBuilder.append(installedAddons);
         supportDetailsBuilder.append(getOperatingSystem()).append(NEWLINE);
         supportDetailsBuilder.append(getArch()).append(NEWLINE);
+        supportDetailsBuilder.append(getCpuCores()).append(NEWLINE);
+        supportDetailsBuilder.append(getMaxMemory()).append(NEWLINE);
         supportDetailsBuilder.append(getJavaVersionVendor()).append(NEWLINE);
         supportDetailsBuilder.append(getLocaleSystem()).append(NEWLINE);
         supportDetailsBuilder.append(getLocaleDisplay()).append(NEWLINE);
@@ -185,5 +221,49 @@ public final class ZapSupportUtils {
         supportDetailsBuilder.append(getLookAndFeel()).append(NEWLINE);
 
         return supportDetailsBuilder.toString();
+    }
+
+    private static void addFileToZip(ZipOutputStream zipOut, String name, String contents)
+            throws IOException {
+        ZipEntry zipEntry = new ZipEntry(name);
+        zipOut.putNextEntry(zipEntry);
+        zipOut.write(contents.getBytes());
+    }
+
+    /**
+     * Writes all of the available SBOMs to the specified zip file.
+     *
+     * @param file the zip file to write to.
+     * @return the number of SBOMs found.
+     * @throws IOException
+     * @since 2.14.0
+     */
+    public static int saveSbomZip(File file) throws IOException {
+        int count = 0;
+        try (FileOutputStream fos = new FileOutputStream(file);
+                ZipOutputStream zipOut = new ZipOutputStream(fos)) {
+
+            // Add the core SBOM - this may be null if running from the source code
+            try (InputStream is = ZAP.class.getResourceAsStream("/bom.json")) {
+                if (is != null) {
+                    addFileToZip(
+                            zipOut,
+                            "zap-core-bom.json",
+                            IOUtils.toString(is, StandardCharsets.UTF_8));
+                    count++;
+                }
+            }
+
+            List<AddOn> addOns =
+                    ExtensionFactory.getAddOnLoader().getAddOnCollection().getInstalledAddOns();
+            for (AddOn addOn : addOns) {
+                String sbom = addOn.getSbom();
+                if (sbom != null) {
+                    addFileToZip(zipOut, addOn.getId() + "-bom.json", sbom);
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 }

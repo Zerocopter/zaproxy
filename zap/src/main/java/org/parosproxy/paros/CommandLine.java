@@ -53,6 +53,9 @@
 // ZAP: 2022/04/11 Remove -nouseragent option.
 // ZAP: 2022/08/18 Support parameters supplied to newly installed or updated add-ons.
 // ZAP: 2023/01/10 Tidy up logger.
+// ZAP: 2023/03/23 Read ZAP_SILENT env var.
+// ZAP: 2023/10/10 Add -sbomzip option.
+// ZAP: 2024/01/13 Add -loglevel option.
 package org.parosproxy.paros;
 
 import java.io.File;
@@ -65,6 +68,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.function.UnaryOperator;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.parosproxy.paros.extension.CommandLineArgument;
@@ -84,19 +89,28 @@ public class CommandLine {
     public static final String HELP2 = "-h";
     public static final String DIR = "-dir";
     public static final String VERSION = "-version";
-    /** @deprecated (2.12.0) No longer used/needed. It will be removed in a future release. */
+
+    /**
+     * @deprecated (2.12.0) No longer used/needed. It will be removed in a future release.
+     */
     @Deprecated public static final String PORT = "-port";
-    /** @deprecated (2.12.0) No longer used/needed. It will be removed in a future release. */
+
+    /**
+     * @deprecated (2.12.0) No longer used/needed. It will be removed in a future release.
+     */
     @Deprecated public static final String HOST = "-host";
 
     public static final String CMD = "-cmd";
     public static final String INSTALL_DIR = "-installdir";
     public static final String CONFIG = "-config";
     public static final String CONFIG_FILE = "-configfile";
+    public static final String LOG_LEVEL = "-loglevel";
     public static final String LOWMEM = "-lowmem";
     public static final String EXPERIMENTALDB = "-experimentaldb";
     public static final String SUPPORT_INFO = "-suppinfo";
+    public static final String SBOM_ZIP = "-sbomzip";
     public static final String SILENT = "-silent";
+    static final String SILENT_ENV_VAR = "ZAP_SILENT";
 
     /**
      * Command line option to disable the default logging through standard output.
@@ -128,6 +142,7 @@ public class CommandLine {
     private boolean lowMem = false;
     private boolean experimentalDb = false;
     private boolean silent = false;
+    private File saveSbomZip;
     private String[] args;
     private String[] argsBackup;
     private final Map<String, String> configs = new LinkedHashMap<>();
@@ -143,12 +158,19 @@ public class CommandLine {
     /** Flag that indicates whether or not the "dev mode" is enabled. */
     private boolean devMode;
 
+    private Level logLevel;
+
     public CommandLine(String[] args) throws Exception {
+        this(args, System::getenv);
+    }
+
+    CommandLine(String[] args, UnaryOperator<String> env) throws Exception {
         this.args = args == null ? new String[0] : args;
         this.argsBackup = new String[this.args.length];
         System.arraycopy(this.args, 0, argsBackup, 0, this.args.length);
 
         parseFirst(this.args);
+        readEnv(env);
 
         if (isEnabled(CommandLine.CMD) && isEnabled(CommandLine.DAEMON)) {
             throw new IllegalArgumentException(
@@ -158,6 +180,17 @@ public class CommandLine {
                             + CommandLine.DAEMON
                             + " cannot be used at the same time.");
         }
+    }
+
+    private void readEnv(UnaryOperator<String> env) {
+        if (env.apply(SILENT_ENV_VAR) != null) {
+            setSilent();
+        }
+    }
+
+    private void setSilent() {
+        silent = true;
+        Constant.setSilent(true);
     }
 
     private boolean checkPair(String[] args, String paramName, int i) throws Exception {
@@ -393,8 +426,7 @@ public class CommandLine {
             devMode = true;
             Constant.setDevMode(true);
         } else if (checkSwitch(args, SILENT, i)) {
-            silent = true;
-            Constant.setSilent(true);
+            setSilent();
         }
 
         return result;
@@ -411,9 +443,21 @@ public class CommandLine {
         } else if (checkPair(args, DIR, i)) {
             Constant.setZapHome(keywords.get(DIR));
             result = true;
-
+        } else if (checkPair(args, LOG_LEVEL, i)) {
+            logLevel = Level.toLevel(keywords.get(LOG_LEVEL), null);
+            if (logLevel == null) {
+                throw new Exception("Invalid log level: \"" + keywords.get(LOG_LEVEL) + "\"");
+            }
+            result = true;
         } else if (checkPair(args, INSTALL_DIR, i)) {
             Constant.setZapInstall(keywords.get(INSTALL_DIR));
+            result = true;
+
+        } else if (checkPair(args, SBOM_ZIP, i)) {
+            String zipName = keywords.get(SBOM_ZIP);
+            this.saveSbomZip = new File(zipName);
+            setDaemon(false);
+            setGUI(false);
             result = true;
 
         } else if (checkPair(args, CONFIG, i)) {
@@ -516,13 +560,21 @@ public class CommandLine {
         return this.displaySupportInfo;
     }
 
-    /** @deprecated (2.12.0) No longer used/needed. It will be removed in a future release. */
+    public File getSaveSbomZip() {
+        return this.saveSbomZip;
+    }
+
+    /**
+     * @deprecated (2.12.0) No longer used/needed. It will be removed in a future release.
+     */
     @Deprecated
     public int getPort() {
         return -1;
     }
 
-    /** @deprecated (2.12.0) No longer used/needed. It will be removed in a future release. */
+    /**
+     * @deprecated (2.12.0) No longer used/needed. It will be removed in a future release.
+     */
     @Deprecated
     public String getHost() {
         return null;
@@ -555,6 +607,15 @@ public class CommandLine {
      */
     public boolean isNoStdOutLog() {
         return noStdOutLog;
+    }
+
+    /**
+     * Returns the specified log level argument.
+     *
+     * @since 2.15.0
+     */
+    public Level getLogLevel() {
+        return logLevel;
     }
 
     /**

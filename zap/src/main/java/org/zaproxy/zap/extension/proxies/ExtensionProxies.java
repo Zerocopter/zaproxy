@@ -38,7 +38,9 @@ import org.parosproxy.paros.extension.OptionsChangedListener;
 import org.parosproxy.paros.model.OptionsParam;
 import org.zaproxy.zap.utils.ZapXmlConfiguration;
 
-/** @deprecated (2.12.0) Use the capabilities provided by the network add-on. */
+/**
+ * @deprecated (2.12.0) Use the capabilities provided by the network add-on.
+ */
 @Deprecated
 public class ExtensionProxies extends ExtensionAdaptor implements OptionsChangedListener {
 
@@ -155,6 +157,7 @@ public class ExtensionProxies extends ExtensionAdaptor implements OptionsChanged
         return address + ":" + port;
     }
 
+    @SuppressWarnings("removal")
     private org.parosproxy.paros.core.proxy.ProxyServer startProxyServer(ProxiesParamProxy param) {
         String address = param.getAddress();
         int port = param.getPort();
@@ -196,6 +199,7 @@ public class ExtensionProxies extends ExtensionAdaptor implements OptionsChanged
         return proxyServer;
     }
 
+    @SuppressWarnings("removal")
     private void stopProxyServer(
             String proxyKey, org.parosproxy.paros.core.proxy.ProxyServer proxyServer) {
         log.info("Stopping alt proxy server: {}", proxyKey);

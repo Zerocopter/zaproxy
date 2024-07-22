@@ -141,7 +141,7 @@ public abstract class PostBasedAuthenticationMethodType extends AuthenticationMe
      * @param postDataRequired {@code true} if the POST data is required by the authentication
      *     method, {@code false} otherwise.
      */
-    protected PostBasedAuthenticationMethodType(
+    public PostBasedAuthenticationMethodType(
             String methodName,
             int methodIdentifier,
             String apiMethodName,
@@ -173,8 +173,10 @@ public abstract class PostBasedAuthenticationMethodType extends AuthenticationMe
         private HttpSender httpSender;
         private SiteNode markedLoginSiteNode;
         private SiteNode loginSiteNode = null;
+
         /** The URL to which credentials are submitted. */
         private String loginRequestURL;
+
         /**
          * The URI of the login page(form). When automatically (re)authenticating, {@code ZAP} may
          * need to submit fresh cookie or(and) ACSRF token. {@code ZAP} gets those fresh values by
@@ -198,7 +200,7 @@ public abstract class PostBasedAuthenticationMethodType extends AuthenticationMe
          * @param authenticationMethod the authentication method to copy from, might be {@code
          *     null}.
          */
-        protected PostBasedAuthenticationMethod(
+        public PostBasedAuthenticationMethod(
                 String contentType,
                 UnaryOperator<String> paramEncoder,
                 PostBasedAuthenticationMethod authenticationMethod) {
@@ -466,7 +468,7 @@ public abstract class PostBasedAuthenticationMethodType extends AuthenticationMe
          * @param postData the post data, or {@code null} if the request should be a GET one
          * @throws Exception the exception
          */
-        protected void setLoginRequest(String url, String postData) throws Exception {
+        public void setLoginRequest(String url, String postData) throws Exception {
             if (url == null || url.length() == 0) {
                 this.loginRequestURL = null;
                 this.loginRequestBody = null;
@@ -494,11 +496,11 @@ public abstract class PostBasedAuthenticationMethodType extends AuthenticationMe
             }
         }
 
-        protected void setLoginPageUrl(String loginPageUrl) {
+        public void setLoginPageUrl(String loginPageUrl) {
             this.loginPageUrl = loginPageUrl;
         }
 
-        protected void setLoginPageUrl(SiteNode loginFormSiteNode)
+        public void setLoginPageUrl(SiteNode loginFormSiteNode)
                 throws HttpMalformedHeaderException, DatabaseException {
             this.loginPageUrl =
                     loginFormSiteNode
@@ -686,13 +688,14 @@ public abstract class PostBasedAuthenticationMethodType extends AuthenticationMe
 
     /** The Options Panel used for configuring a {@link PostBasedAuthenticationMethod}. */
     @SuppressWarnings("serial")
-    protected abstract class PostBasedAuthenticationMethodOptionsPanel
+    public abstract class PostBasedAuthenticationMethodOptionsPanel
             extends AbstractAuthenticationMethodOptionsPanel {
 
         private static final long serialVersionUID = 1L;
 
         /** The URI to which the login credentials are submitted. */
         private ZapTextField loginUrlField;
+
         /**
          * The URI to {@code GET} the login page(form). When automatically (re)authenticating,
          * {@code ZAP} may need fresh cookie or(and) ACSRF token value. {@code ZAP} gets those fresh
@@ -891,7 +894,7 @@ public abstract class PostBasedAuthenticationMethodType extends AuthenticationMe
          *
          * @return the context, never {@code null}.
          */
-        protected Context getContext() {
+        public Context getContext() {
             return context;
         }
 
@@ -1252,11 +1255,6 @@ public abstract class PostBasedAuthenticationMethodType extends AuthenticationMe
                                 }
                             }
                         };
-                    }
-
-                    @Override
-                    public int getParentMenuIndex() {
-                        return 3;
                     }
                 };
         return popupFlagLoginRequestMenuFactory;

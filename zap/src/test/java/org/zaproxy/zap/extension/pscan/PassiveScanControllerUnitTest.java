@@ -22,6 +22,7 @@ package org.zaproxy.zap.extension.pscan;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.BDDMockito.given;
@@ -31,9 +32,12 @@ import static org.mockito.Mockito.when;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import net.htmlparser.jericho.Source;
 import org.apache.commons.httpclient.URI;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.parosproxy.paros.Constant;
@@ -82,6 +86,11 @@ class PassiveScanControllerUnitTest extends TestUtils {
         psc.setSession(session);
     }
 
+    @AfterEach
+    void cleanup() {
+        psc.shutdown();
+    }
+
     private static void sleep(int msecs) {
         try {
             Thread.sleep(msecs);
@@ -109,13 +118,43 @@ class PassiveScanControllerUnitTest extends TestUtils {
         psc.start();
         psc.onHttpResponseReceive(null);
         scanState.waitScanFinished();
-        psc.shutdown();
         sleep(500);
 
         // Then
         assertThat(psc.getRecordsToScan(), is(equalTo(0)));
         assertThat(scanState.isScannedRequest(), is(equalTo(true)));
         assertThat(scanState.isScannedResponse(), is(equalTo(true)));
+    }
+
+    @Test
+    void shouldProcessHistoryRecordEvenIfConstantlyInterrupted() throws Exception {
+        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+        try {
+            // Given
+            HttpMessage msg = new HttpMessage(new URI(EXAMPLE_URL, true));
+            msg.setResponseFromTargetHost(true);
+
+            HistoryReference href = mock(HistoryReference.class);
+            given(href.getHttpMessage()).willReturn(msg);
+            given(extHistory.getLastHistoryId()).willReturn(0, 1);
+            given(extHistory.getHistoryReference(1)).willReturn(href);
+
+            ScanState scanState = new ScanState(1);
+            TestPassiveScanner scanner = new TestPassiveScanner(true, scanState);
+            given(passiveScannerList.list()).willReturn(Collections.singletonList(scanner));
+
+            executor.scheduleAtFixedRate(() -> psc.interrupt(), 0, 100, TimeUnit.MILLISECONDS);
+            // When
+            psc.start();
+            // Then
+            scanState.waitScanFinished();
+            sleep(500);
+            assertThat(psc.getRecordsToScan(), is(equalTo(0)));
+            assertThat(scanState.isScannedRequest(), is(equalTo(true)));
+            assertThat(scanState.isScannedResponse(), is(equalTo(true)));
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
@@ -140,7 +179,6 @@ class PassiveScanControllerUnitTest extends TestUtils {
         psc.start();
         psc.onHttpResponseReceive(null);
         scanState.waitScanFinished();
-        psc.shutdown();
         sleep(500);
 
         // Then
@@ -171,7 +209,6 @@ class PassiveScanControllerUnitTest extends TestUtils {
         // When
         psc.start();
         psc.onHttpResponseReceive(null);
-        psc.shutdown();
         sleep(500);
 
         // Then
@@ -216,7 +253,6 @@ class PassiveScanControllerUnitTest extends TestUtils {
         int recordsToScan = psc.getRecordsToScan();
         scanState.continueScan();
         scanState.waitScanFinished();
-        psc.shutdown();
         long testEndTime = System.currentTimeMillis();
         sleep(500);
 
@@ -227,7 +263,7 @@ class PassiveScanControllerUnitTest extends TestUtils {
         assertThat(oldestTask.getCurrentScanner().getName(), is(equalTo("TPS")));
         assertThat(oldestTask.getURI().toString(), is(equalTo(exampleUrl1)));
         assertThat(oldestTask.getStartTime(), is(greaterThan(testStartTime)));
-        assertThat(testEndTime, is(greaterThan(oldestTask.getStartTime())));
+        assertThat(testEndTime, is(greaterThanOrEqualTo(oldestTask.getStartTime())));
         assertThat(tasks.size(), is(equalTo(2)));
         assertThat(recordsToScan, is(equalTo(2)));
         assertThat(tasks.get(0).getCurrentScanner().getName(), is(equalTo("TPS")));

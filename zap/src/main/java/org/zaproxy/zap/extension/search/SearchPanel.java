@@ -179,7 +179,7 @@ public class SearchPanel extends AbstractPanel implements SearchListenner {
         GridBagConstraints gridBagConstraints = new GridBagConstraints();
         gridBagConstraints.gridx = gridx;
         gridBagConstraints.gridy = 0;
-        gridBagConstraints.insets = new java.awt.Insets(0, 0, 0, 0);
+        gridBagConstraints.insets = new java.awt.Insets(2, 2, 2, 2);
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         return gridBagConstraints;
     }
@@ -348,6 +348,7 @@ public class SearchPanel extends AbstractPanel implements SearchListenner {
             regEx.setAlignmentX(0.0F);
             regEx.setPreferredSize(DisplayUtils.getScaledDimension(250, 25));
             regEx.setText("");
+            regEx.setPrompt(Constant.messages.getString("search.toolbar.prompt.regex"));
             regEx.setToolTipText(Constant.messages.getString("search.toolbar.tooltip.regex"));
             regEx.setMinimumSize(DisplayUtils.getScaledDimension(250, 25));
 
@@ -529,7 +530,7 @@ public class SearchPanel extends AbstractPanel implements SearchListenner {
     }
 
     private void highlightMatch(SearchMatch sm) {
-        if (sm == null) {
+        if (sm == null || sm.getLocation() == null) {
             return;
         }
 
@@ -653,7 +654,18 @@ public class SearchPanel extends AbstractPanel implements SearchListenner {
                     new SearchOption(
                             Constant.messages.getString("search.toolbar.label.type.header"),
                             ExtensionSearch.Type.Header));
+            searchType.addItem(
+                    new SearchOption(
+                            Constant.messages.getString("search.toolbar.label.type.tag"),
+                            ExtensionSearch.Type.Tag));
         }
+        searchType.addActionListener(
+                e -> {
+                    ExtensionSearch.Type selectedopt =
+                            ((SearchOption) searchType.getSelectedItem()).getType();
+                    // Inverse matching not enabled for Tags
+                    getChkInverse().setEnabled(!selectedopt.equals(ExtensionSearch.Type.Tag));
+                });
         return searchType;
     }
 

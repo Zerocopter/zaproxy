@@ -20,6 +20,7 @@
 package org.zaproxy.zap.extension.ascan;
 
 import java.awt.CardLayout;
+import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -48,6 +49,7 @@ public class OptionsScannerPanel extends AbstractParamPanel {
     private ZapNumberSpinner spinnerDelayInMs = null;
     private ZapNumberSpinner spinnerMaxRuleDuration = null;
     private ZapNumberSpinner spinnerMaxScanDuration = null;
+    private ZapNumberSpinner maxAlertsPerRule;
     private ZapNumberSpinner spinnerMaxResultsList = null;
     private JCheckBox chkInjectPluginIdInHeader = null;
     private JCheckBox chkHandleAntiCsrfTokens = null;
@@ -183,6 +185,31 @@ public class OptionsScannerPanel extends AbstractParamPanel {
                             GridBagConstraints.HORIZONTAL,
                             new Insets(2, 2, 2, 2)));
 
+            maxAlertsPerRule = new ZapNumberSpinner();
+            JLabel label =
+                    new JLabel(Constant.messages.getString("ascan.options.maxAlertsPerRule.label"));
+            label.setLabelFor(maxAlertsPerRule);
+            panelScanner.add(
+                    label,
+                    LayoutHelper.getGBC(
+                            0,
+                            row,
+                            1,
+                            0.0D,
+                            0,
+                            GridBagConstraints.HORIZONTAL,
+                            new Insets(2, 2, 2, 2)));
+            panelScanner.add(
+                    maxAlertsPerRule,
+                    LayoutHelper.getGBC(
+                            1,
+                            row++,
+                            2,
+                            0.0D,
+                            0,
+                            GridBagConstraints.HORIZONTAL,
+                            new Insets(2, 2, 2, 2)));
+
             panelScanner.add(
                     new JLabel(Constant.messages.getString("ascan.options.delayInMs.label")),
                     LayoutHelper.getGBC(
@@ -199,6 +226,20 @@ public class OptionsScannerPanel extends AbstractParamPanel {
                             1,
                             row++,
                             2,
+                            0.0D,
+                            0,
+                            GridBagConstraints.HORIZONTAL,
+                            new Insets(2, 2, 2, 2)));
+
+            JLabel delayDeprecated =
+                    new JLabel(Constant.messages.getString("ascan.options.delayInMs.deprecated"));
+            delayDeprecated.setFont(delayDeprecated.getFont().deriveFont(Font.BOLD));
+            panelScanner.add(
+                    delayDeprecated,
+                    LayoutHelper.getGBC(
+                            0,
+                            row++,
+                            3,
                             0.0D,
                             0,
                             GridBagConstraints.HORIZONTAL,
@@ -359,6 +400,7 @@ public class OptionsScannerPanel extends AbstractParamPanel {
     }
 
     @Override
+    @SuppressWarnings("removal")
     public void initParam(Object obj) {
         OptionsParam options = (OptionsParam) obj;
         ScannerParam param = options.getParamSet(ScannerParam.class);
@@ -368,6 +410,7 @@ public class OptionsScannerPanel extends AbstractParamPanel {
         getSpinnerMaxResultsList().setValue(param.getMaxResultsToList());
         getSpinnerMaxRuleDuration().setValue(param.getMaxRuleDurationInMins());
         getSpinnerMaxScanDuration().setValue(param.getMaxScanDurationInMins());
+        maxAlertsPerRule.setValue(param.getMaxAlertsPerRule());
         getChkInjectPluginIdInHeader().setSelected(param.isInjectPluginIdInHeader());
         getChkHandleAntiCSRFTokens().setSelected(param.getHandleAntiCSRFTokens());
         getChkPromptInAttackMode().setSelected(param.isPromptInAttackMode());
@@ -382,6 +425,7 @@ public class OptionsScannerPanel extends AbstractParamPanel {
     }
 
     @Override
+    @SuppressWarnings("removal")
     public void saveParam(Object obj) throws Exception {
         OptionsParam options = (OptionsParam) obj;
         ScannerParam param = options.getParamSet(ScannerParam.class);
@@ -391,6 +435,7 @@ public class OptionsScannerPanel extends AbstractParamPanel {
         param.setMaxResultsToList(this.getSpinnerMaxResultsList().getValue());
         param.setMaxRuleDurationInMins(this.getSpinnerMaxRuleDuration().getValue());
         param.setMaxScanDurationInMins(this.getSpinnerMaxScanDuration().getValue());
+        param.setMaxAlertsPerRule(maxAlertsPerRule.getValue());
         param.setInjectPluginIdInHeader(getChkInjectPluginIdInHeader().isSelected());
         param.setHandleAntiCSRFTokens(getChkHandleAntiCSRFTokens().isSelected());
         param.setPromptInAttackMode(getChkPromptInAttackMode().isSelected());

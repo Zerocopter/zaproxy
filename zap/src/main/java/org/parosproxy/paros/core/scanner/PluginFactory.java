@@ -77,7 +77,6 @@ import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.zaproxy.zap.control.CoreFunctionality;
 import org.zaproxy.zap.control.ExtensionFactory;
 
 public class PluginFactory {
@@ -113,7 +112,7 @@ public class PluginFactory {
 
     // Helper method to ease tests.
     static void init(boolean includeAddOns) {
-        loadedPlugins = new ArrayList<>(CoreFunctionality.getBuiltInActiveScanRules());
+        loadedPlugins = new ArrayList<>();
         if (includeAddOns) {
             loadedPlugins.addAll(ExtensionFactory.getAddOnLoader().getActiveScanRules());
         }
@@ -363,7 +362,9 @@ public class PluginFactory {
         return depsPlugins;
     }
 
-    /** @param config */
+    /**
+     * @param config
+     */
     public synchronized void loadAllPlugin(Configuration config) {
         LOGGER.debug("loadAllPlugin");
         this.config = config;

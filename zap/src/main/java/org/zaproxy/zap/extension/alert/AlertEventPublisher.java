@@ -31,6 +31,7 @@ public class AlertEventPublisher implements EventPublisher {
     public static final String ALL_ALERTS_REMOVED_EVENT = "alert.all.removed";
 
     public static final String ALERT_ID = "alertId";
+
     /**
      * Indicates the {@code HistoryReference} ID of the alert.
      *
@@ -42,6 +43,7 @@ public class AlertEventPublisher implements EventPublisher {
     public static final String HISTORY_REFERENCE_ID = "historyId";
 
     public static final String NAME = "name";
+    public static final String PLUGIN_ID = "pluginId";
     public static final String URI = "uri";
     public static final String PARAM = "param";
     public static final String RISK = "risk";

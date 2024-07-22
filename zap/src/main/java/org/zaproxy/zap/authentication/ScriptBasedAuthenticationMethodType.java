@@ -41,7 +41,7 @@ import javax.swing.JPanel;
 import net.sf.json.JSONObject;
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.configuration.ConfigurationException;
-import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdesktop.swingx.JXComboBox;
@@ -199,7 +199,7 @@ public class ScriptBasedAuthenticationMethodType extends AuthenticationMethodTyp
         }
 
         @Override
-        protected AuthenticationMethod duplicate() {
+        public AuthenticationMethod duplicate() {
             ScriptBasedAuthenticationMethod method = new ScriptBasedAuthenticationMethod();
             method.script = script;
             method.paramValues = this.paramValues != null ? new HashMap<>(this.paramValues) : null;
@@ -636,7 +636,7 @@ public class ScriptBasedAuthenticationMethodType extends AuthenticationMethodTyp
 
     @Override
     public boolean isTypeForMethod(AuthenticationMethod method) {
-        return (method instanceof ScriptBasedAuthenticationMethod);
+        return method != null && ScriptBasedAuthenticationMethod.class.equals(method.getClass());
     }
 
     @Override

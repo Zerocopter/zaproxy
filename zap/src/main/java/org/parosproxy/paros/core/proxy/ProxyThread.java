@@ -108,7 +108,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Vector;
 import javax.net.ssl.SSLException;
-import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.parosproxy.paros.Constant;
@@ -128,7 +128,9 @@ import org.zaproxy.zap.extension.api.API;
 import org.zaproxy.zap.network.HttpRequestBody;
 import org.zaproxy.zap.network.HttpRequestConfig;
 
-/** @deprecated No longer used/needed. It will be removed in a future release. */
+/**
+ * @deprecated No longer used/needed. It will be removed in a future release.
+ */
 @Deprecated
 public class ProxyThread implements Runnable {
 

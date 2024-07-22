@@ -63,7 +63,7 @@ public class Spider {
     /** If the spider is currently paused. */
     private volatile boolean paused;
 
-    /** The the spider is currently stopped. */
+    /** The spider is currently stopped. */
     private volatile boolean stopped;
 
     /** The pause lock, used for locking access to the "paused" variable. */
@@ -547,7 +547,7 @@ public class Spider {
      * being accessed.
      *
      * @see #seedList
-     * @see FetchFilter
+     * @see org.zaproxy.zap.spider.filters.FetchFilter
      * @see SpiderController#getFetchFilters()
      * @since 2.5.0
      */

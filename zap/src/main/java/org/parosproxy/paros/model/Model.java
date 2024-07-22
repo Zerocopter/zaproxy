@@ -107,7 +107,9 @@ public class Model {
         optionsParam = new OptionsParam();
     }
 
-    /** @return Returns the optionsParam. */
+    /**
+     * @return Returns the optionsParam.
+     */
     public OptionsParam getOptionsParam() {
         if (optionsParam == null) {
             optionsParam = new OptionsParam();
@@ -115,12 +117,16 @@ public class Model {
         return optionsParam;
     }
 
-    /** @param param The optionsParam to set. */
+    /**
+     * @param param The optionsParam to set.
+     */
     public void setOptionsParam(OptionsParam param) {
         optionsParam = param;
     }
 
-    /** @return Returns the session. */
+    /**
+     * @return Returns the session.
+     */
     public Session getSession() {
         if (session == null) {
             session = new Session(this);
@@ -200,10 +206,9 @@ public class Model {
             LOGGER.info("Using experimental database :/");
             db = DbSQL.getSingleton().initDatabase();
         } else {
-            ParosDatabase parosDb = new ParosDatabase();
-            parosDb.setDatabaseParam(getOptionsParam().getDatabaseParam());
-            db = parosDb;
+            db = new ParosDatabase();
         }
+        db.setDatabaseOptions(getOptionsParam().getDatabaseParam());
 
         createAndOpenUntitledDb();
 
@@ -239,7 +244,9 @@ public class Model {
         model.contextDataFactories = new ArrayList<>();
     }
 
-    /** @return Returns the db. */
+    /**
+     * @return Returns the db.
+     */
     public Database getDb() {
         return db;
     }

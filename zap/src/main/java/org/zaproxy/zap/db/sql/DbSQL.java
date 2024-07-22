@@ -36,7 +36,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.parosproxy.paros.Constant;
@@ -65,6 +65,18 @@ public class DbSQL implements DatabaseListener {
             singleton = new DbSQL();
         }
         return singleton;
+    }
+
+    static void reset() {
+        dbProperties = null;
+        sqlProperties = null;
+        dbType = null;
+        singleton = null;
+        dbServer = null;
+    }
+
+    static void setSqlProperties(Properties properties) {
+        sqlProperties = properties;
     }
 
     protected String getDbUser() {

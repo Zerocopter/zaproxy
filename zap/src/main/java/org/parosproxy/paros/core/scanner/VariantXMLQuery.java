@@ -21,7 +21,7 @@ package org.parosproxy.paros.core.scanner;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.text.StringEscapeUtils;
 
 /**
  * Variant specialized
@@ -81,7 +81,7 @@ public class VariantXMLQuery extends VariantAbstractRPCQuery {
      */
     @Override
     public String getEscapedValue(String value, boolean toQuote) {
-        return StringEscapeUtils.escapeXml(value);
+        return StringEscapeUtils.escapeXml11(value);
     }
 
     /**
@@ -93,7 +93,9 @@ public class VariantXMLQuery extends VariantAbstractRPCQuery {
         return StringEscapeUtils.unescapeXml(value);
     }
 
-    /** @param content */
+    /**
+     * @param content
+     */
     @Override
     public void parseContent(String content) {
         Matcher matcher = attPattern.matcher(content);

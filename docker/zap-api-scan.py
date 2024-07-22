@@ -21,7 +21,7 @@
 # or GraphQL using ZAP.
 #
 # It can either be run 'standalone', in which case depends on
-# https://pypi.python.org/pypi/python-owasp-zap-v2.4 and Docker, or it can be run
+# https://pypi.python.org/pypi/zaproxy and Docker, or it can be run
 # inside one of the ZAP docker containers. It automatically detects if it is
 # running in docker so the parameters are the same.
 #
@@ -58,7 +58,8 @@ import subprocess
 import sys
 import time
 from datetime import datetime
-from six.moves.urllib.parse import urljoin
+
+from six.moves.urllib.parse import urljoin, urlparse
 from zapv2 import ZAPv2
 from zap_common import *
 
@@ -110,12 +111,22 @@ def usage():
     print('    -S                safe mode this will skip the active scan and perform a baseline scan')
     print('    -T                max time in minutes to wait for ZAP to start and the passive scan to run')
     print('    -U user           username to use for authenticated scans - must be defined in the given context file')
-    print('    -O                the hostname to override in the (remote) OpenAPI spec')
+    print('    -O                the hostname or URL to override in the (remote) OpenAPI spec')
     print('    -z zap_options    ZAP command line options e.g. -z "-config aaa=bbb -config ccc=ddd"')
     print('    --hook            path to python file that define your custom hooks')
     print('    --schema          GraphQL schema location, URL or file, e.g. https://www.example.com/schema.graphqls')
     print('')
     print('For more details see https://www.zaproxy.org/docs/docker/api-scan/')
+
+
+def get_script_engine(zap, wanted):
+    available = list(map(lambda e: e.split(' : ')[1], zap.script.list_engines))
+    found = list(filter(lambda e: e in available, wanted))
+
+    if len(found) > 0:
+       return found[0]
+
+    return None
 
 
 def main(argv):
@@ -246,6 +257,10 @@ def main(argv):
         usage()
         sys.exit(3)
 
+    if "-silent" in zap_options and zap_alpha:
+        logging.warning('You cannot use the \'-a\' option with the ZAP \'-silent\' option')
+        sys.exit(3)
+
     if running_in_docker():
         base_dir = '/zap/wrk/'
         if config_file or generate or report_html or report_xml or report_json or report_md or progress_file or context_file:
@@ -329,13 +344,15 @@ def main(argv):
 
     if running_in_docker():
         try:
-            params = [
-                      '-addonupdate',
-                      '-addoninstall', 'pscanrulesBeta']  # In case we're running in the stable container
+            params = []
 
-            if zap_alpha:
-                params.append('-addoninstall')
-                params.append('pscanrulesAlpha')
+            if "-silent" not in zap_options:
+                params.append('-addonupdate')
+                # In case we're running in the stable container
+                params.extend(['-addoninstall', 'pscanrulesBeta'])
+
+                if zap_alpha:
+                    params.extend(['-addoninstall', 'pscanrulesAlpha'])
 
             add_zap_options(params, zap_options)
 
@@ -351,15 +368,18 @@ def main(argv):
         if context_file:
             mount_dir =  os.path.dirname(os.path.abspath(context_file))
 
-        params = ['-addonupdate']
+        params = []
 
-        if (zap_alpha):
-            params.extend(['-addoninstall', 'pscanrulesAlpha'])
+        if "-silent" not in zap_options:
+            params.append('-addonupdate')
+
+            if (zap_alpha):
+                params.extend(['-addoninstall', 'pscanrulesAlpha'])
 
         add_zap_options(params, zap_options)
 
         try:
-            cid = start_docker_zap('owasp/zap2docker-weekly', port, params, mount_dir)
+            cid = start_docker_zap('ghcr.io/zaproxy/zaproxy:weekly', port, params, mount_dir)
             zap_ip = ipaddress_for_cid(cid)
             logging.debug('Docker ZAP IP Addr: ' + zap_ip)
 
@@ -397,9 +417,10 @@ def main(argv):
                 zap_set_scan_user(zap, user)
 
         # Enable scripts
-        zap.script.load('Alert_on_HTTP_Response_Code_Errors.js', 'httpsender', 'Oracle Nashorn', '/home/zap/.ZAP_D/scripts/scripts/httpsender/Alert_on_HTTP_Response_Code_Errors.js')
+        script_engine = get_script_engine(zap, ['Oracle Nashorn', 'Graal.js'])
+        zap.script.load('Alert_on_HTTP_Response_Code_Errors.js', 'httpsender', script_engine, '/home/zap/.ZAP_D/scripts/scripts/httpsender/Alert_on_HTTP_Response_Code_Errors.js')
         zap.script.enable('Alert_on_HTTP_Response_Code_Errors.js')
-        zap.script.load('Alert_on_Unexpected_Content_Types.js', 'httpsender', 'Oracle Nashorn', '/home/zap/.ZAP_D/scripts/scripts/httpsender/Alert_on_Unexpected_Content_Types.js')
+        zap.script.load('Alert_on_Unexpected_Content_Types.js', 'httpsender', script_engine, '/home/zap/.ZAP_D/scripts/scripts/httpsender/Alert_on_Unexpected_Content_Types.js')
         zap.script.enable('Alert_on_Unexpected_Content_Types.js')
 
         # Import the API defn
@@ -409,9 +430,14 @@ def main(argv):
                 logging.debug('Import OpenAPI URL ' + target_url)
                 res = zap.openapi.import_url(target, host_override)
                 urls = zap.core.urls()
+
                 if host_override:
-                    target = urljoin(target_url, '//' + host_override)
-                    logging.info('Using host override, new target: {0}'.format(target))
+                    if urlparse(host_override).scheme:
+                        target = host_override
+                    else:
+                        target = urljoin(target_url, '//' + host_override)
+                    logging.info(
+                        'Using override, new target: {0}'.format(target))
             else:
                 logging.debug('Import OpenAPI File ' + target_file)
                 res = zap.openapi.import_file(target_file)

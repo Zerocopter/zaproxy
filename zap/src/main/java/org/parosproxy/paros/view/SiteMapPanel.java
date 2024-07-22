@@ -56,6 +56,7 @@
 // ZAP: 2022/07/04 Make delete more consistent and protective (Issue 7336).
 // ZAP: 2022/08/05 Address warns with Java 18 (Issue 7389).
 // ZAP: 2023/01/10 Tidy up logger.
+// ZAP: 2023/02/22 Correct delete consistency fix.
 package org.parosproxy.paros.view;
 
 import java.awt.Component;
@@ -161,6 +162,7 @@ public class SiteMapPanel extends AbstractPanel {
 
         return view;
     }
+
     /** This method initializes this */
     private void initialize() {
         this.setHideable(false);
@@ -457,7 +459,7 @@ public class SiteMapPanel extends AbstractPanel {
                                     FileConfiguration config =
                                             Model.getSingleton().getOptionsParam().getConfig();
                                     boolean confirmRemoval =
-                                            config.getBoolean(REMOVE_CONFIRMATION_KEY, false);
+                                            config.getBoolean(REMOVE_CONFIRMATION_KEY, true);
 
                                     if (confirmRemoval) {
                                         JCheckBox removeWithoutConfirmationCheckBox =
@@ -493,7 +495,7 @@ public class SiteMapPanel extends AbstractPanel {
                                                 .getConfig()
                                                 .setProperty(
                                                         REMOVE_CONFIRMATION_KEY,
-                                                        removeWithoutConfirmationCheckBox
+                                                        !removeWithoutConfirmationCheckBox
                                                                 .isSelected());
                                     }
 

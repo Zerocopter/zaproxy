@@ -28,9 +28,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.parosproxy.paros.network.HttpMessage;
 import org.parosproxy.paros.network.HttpSender;
+import org.zaproxy.zap.network.HttpRequestConfig;
 import org.zaproxy.zap.utils.HashUtils;
 
 public class Downloader extends Thread {
+
+    private static final HttpRequestConfig HTTP_REQUEST_CONFIG =
+            HttpRequestConfig.builder().setFollowRedirects(true).setNotifyListeners(false).build();
+
     private URL url;
     private File targetFile;
     private Exception exception = null;
@@ -45,13 +50,17 @@ public class Downloader extends Thread {
 
     private static final Logger LOGGER = LogManager.getLogger(Downloader.class);
 
-    /** @deprecated (2.12.0) */
+    /**
+     * @deprecated (2.12.0)
+     */
     @Deprecated
     public Downloader(URL url, Proxy proxy, File targetFile, String hash) {
         this(url, proxy, targetFile, 0, hash);
     }
 
-    /** @deprecated (2.12.0) */
+    /**
+     * @deprecated (2.12.0)
+     */
     @Deprecated
     public Downloader(URL url, Proxy proxy, File targetFile, long size, String hash) {
         this(url, targetFile, 0, hash, HttpSender.CHECK_FOR_UPDATES_INITIATOR);
@@ -95,9 +104,8 @@ public class Downloader extends Thread {
     private void downloadFile() {
         try {
             HttpSender sender = new HttpSender(initiator);
-            sender.setFollowRedirect(true);
             HttpMessage message = new HttpMessage(new URI(url.toString(), true));
-            sender.sendAndReceive(message, targetFile.toPath());
+            sender.sendAndReceive(message, HTTP_REQUEST_CONFIG, targetFile.toPath());
         } catch (Exception e) {
             this.exception = e;
         }

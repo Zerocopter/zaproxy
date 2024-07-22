@@ -23,7 +23,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -42,9 +45,10 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 import org.apache.commons.configuration.SubnodeConfiguration;
-import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.SystemUtils;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -72,6 +76,16 @@ public class AddOn {
      * @since 2.6.0
      */
     public static final String MANIFEST_FILE_NAME = "ZapAddOn.xml";
+
+    /**
+     * The name of the SBOM file, contained in the add-ons.
+     *
+     * <p>The SBOM file is expected to be in the root of the ZIP file, but may not be present for
+     * 3rd party add-ons.
+     *
+     * @since 2.14.0
+     */
+    protected static final String BOM_FILE_NAME = "bom.json";
 
     public enum Status {
         unknown,
@@ -231,12 +245,14 @@ public class AddOn {
     private String name;
     private String description = "";
     private String author = "";
+
     /**
      * The version declared in the manifest file.
      *
      * <p>Never {@code null}.
      */
     private Version version;
+
     /**
      * The (semantic) version declared in the manifest file, to be replaced by {@link #version}.
      *
@@ -290,8 +306,6 @@ public class AddOn {
     private List<AbstractPlugin> loadedAscanrules = Collections.emptyList();
     private boolean loadedAscanRulesSet;
     private List<String> pscanrules = Collections.emptyList();
-    private List<PluginPassiveScanner> loadedPscanrules = Collections.emptyList();
-    private boolean loadedPscanRulesSet;
     private List<String> files = Collections.emptyList();
     private List<Lib> libs = Collections.emptyList();
 
@@ -565,7 +579,11 @@ public class AddOn {
         this.semVer = addOnData.getSemVer();
         this.status = AddOn.Status.valueOf(addOnData.getStatus());
         this.changes = addOnData.getChanges();
-        this.url = new URL(addOnData.getUrl());
+        try {
+            this.url = new URI(addOnData.getUrl()).toURL();
+        } catch (URISyntaxException e) {
+            throw new MalformedURLException(e.getMessage());
+        }
         this.file = new File(baseDir, addOnData.getFile());
         this.size = addOnData.getSize();
         this.notBeforeVersion = addOnData.getNotBeforeVersion();
@@ -581,7 +599,7 @@ public class AddOn {
     private URL createUrl(String url) {
         if (url != null && !url.isEmpty()) {
             try {
-                return new URL(url);
+                return new URI(url).toURL();
             } catch (Exception e) {
                 LOGGER.warn("Invalid URL for add-on \"{}\": {}", id, url, e);
             }
@@ -1024,76 +1042,12 @@ public class AddOn {
      * @return an unmodifiable {@code List} with the passive scan rules of this add-on that were
      *     loaded, never {@code null}
      * @since 2.4.3
-     * @see #setLoadedPscanrules(List)
+     * @deprecated (2.15.0) Returns an empty list always. The scan rules are loaded by the
+     *     corresponding extension.
      */
+    @Deprecated(since = "2.15.0", forRemoval = true)
     public List<PluginPassiveScanner> getLoadedPscanrules() {
-        return loadedPscanrules;
-    }
-
-    /**
-     * Sets the loaded passive scan rules of the add-on, allowing to set the status of the passive
-     * scan rules appropriately and keep track of the passive scan rules loaded so that they can be
-     * removed during uninstallation.
-     *
-     * <p><strong>Note:</strong> Helper method to be used (only) by/during (un)installation process
-     * and loading of the add-on. Should be called when installing/loading the add-on, by setting
-     * the loaded passive scan rules, and when uninstalling by setting an empty list. The method
-     * {@code setLoadedPscanrulesSet(boolean)} should also be called.
-     *
-     * @param pscanrules the passive scan rules loaded, might be empty if none were actually loaded
-     * @throws IllegalArgumentException if {@code pscanrules} is {@code null}.
-     * @since 2.4.3
-     * @see #setLoadedPscanrulesSet(boolean)
-     * @see PluginPassiveScanner#setStatus(Status)
-     */
-    void setLoadedPscanrules(List<PluginPassiveScanner> pscanrules) {
-        if (pscanrules == null) {
-            throw new IllegalArgumentException("Parameter pscanrules must not be null.");
-        }
-
-        if (pscanrules.isEmpty()) {
-            loadedPscanrules = Collections.emptyList();
-            return;
-        }
-
-        for (PluginPassiveScanner pscanrule : pscanrules) {
-            pscanrule.setStatus(getStatus());
-        }
-        loadedPscanrules = Collections.unmodifiableList(new ArrayList<>(pscanrules));
-    }
-
-    /**
-     * Tells whether or not the loaded passive scan rules of the add-on, if any, were already set to
-     * the add-on.
-     *
-     * <p><strong>Note:</strong> Helper method to be used (only) by/during (un)installation process
-     * and loading of the add-on.
-     *
-     * @return {@code true} if the loaded passive scan rules were already set, {@code false}
-     *     otherwise
-     * @since 2.4.3
-     * @see #setLoadedPscanrules(List)
-     * @see #setLoadedPscanrulesSet(boolean)
-     */
-    boolean isLoadedPscanrulesSet() {
-        return loadedPscanRulesSet;
-    }
-
-    /**
-     * Sets whether or not the loaded passive scan rules, if any, where already set to the add-on.
-     *
-     * <p><strong>Note:</strong> Helper method to be used (only) by/during (un)installation process
-     * and loading of the add-on. The method should be called, with {@code true} during
-     * installation/loading and {@code false} during uninstallation, after calling the method {@code
-     * setLoadedPscanrules(List)}.
-     *
-     * @param pscanrulesSet {@code true} if the loaded passive scan rules were already set, {@code
-     *     false} otherwise
-     * @since 2.4.3
-     * @see #setLoadedPscanrules(List)
-     */
-    void setLoadedPscanrulesSet(boolean pscanrulesSet) {
-        loadedPscanRulesSet = pscanrulesSet;
+        return List.of();
     }
 
     public List<String> getFiles() {
@@ -2270,7 +2224,7 @@ public class AddOn {
         }
 
         /**
-         * Tells whether or not the the bundle data is empty.
+         * Tells whether or not the bundle data is empty.
          *
          * <p>An empty {@code BundleData} does not contain any information to load a {@link
          * ResourceBundle}.
@@ -2325,7 +2279,7 @@ public class AddOn {
         }
 
         /**
-         * Tells whether or not the the HelpSet data is empty.
+         * Tells whether or not the HelpSet data is empty.
          *
          * <p>An empty {@code HelpSetData} does not contain any information to load the help.
          *
@@ -2438,5 +2392,30 @@ public class AddOn {
             intVersion += javaVersions[2];
         }
         return intVersion;
+    }
+
+    /**
+     * Returns the SBOM. May be null, e.g. for 3rd party add-ons.
+     *
+     * @return the SBOM.
+     * @since 2.14.0
+     */
+    public String getSbom() {
+        if (file != null && file.exists()) {
+            // Might not exist in the tests
+            try (ZipFile zip = new ZipFile(file)) {
+                ZipEntry zapAddOnEntry = zip.getEntry(BOM_FILE_NAME);
+                if (zapAddOnEntry == null) {
+                    return null;
+                }
+
+                try (InputStream zis = zip.getInputStream(zapAddOnEntry)) {
+                    return IOUtils.toString(zis, StandardCharsets.UTF_8);
+                }
+            } catch (Exception e) {
+                // Ignore
+            }
+        }
+        return null;
     }
 }

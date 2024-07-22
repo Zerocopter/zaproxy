@@ -32,8 +32,13 @@ import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.parosproxy.paros.CommandLine;
 import org.zaproxy.zap.eventBus.EventBus;
 import org.zaproxy.zap.eventBus.SimpleEventBus;
+import org.zaproxy.zap.utils.Stats;
 
 public class ZAP {
+
+    static {
+        System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
+    }
 
     /**
      * ZAP can be run in 4 different ways: cmdline: an inline process that exits when it completes
@@ -152,8 +157,11 @@ public class ZAP {
         private boolean loggerConfigured = false;
 
         @Override
+        @SuppressWarnings("removal")
         public void uncaughtException(Thread t, Throwable e) {
             if (!(e instanceof ThreadDeath)) {
+                updateStats();
+
                 if (loggerConfigured || isLoggerConfigured()) {
                     LOGGER.error("Exception in thread \"{}\"", t.getName(), e);
 
@@ -161,6 +169,14 @@ public class ZAP {
                     System.err.println("Exception in thread \"" + t.getName() + "\"");
                     e.printStackTrace();
                 }
+            }
+        }
+
+        private static void updateStats() {
+            try {
+                Stats.incCounter("stats.error.core.uncaught");
+            } catch (Throwable ignore) {
+                // Already handling an earlier error...
             }
         }
 
@@ -190,7 +206,7 @@ public class ZAP {
         private final PrintStream delegatee;
 
         public DelegatorPrintStream(PrintStream delegatee) {
-            super(NullOutputStream.NULL_OUTPUT_STREAM);
+            super(NullOutputStream.INSTANCE);
             this.delegatee = delegatee;
         }
 

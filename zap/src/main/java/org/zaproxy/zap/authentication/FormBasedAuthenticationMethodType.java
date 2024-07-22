@@ -114,7 +114,7 @@ public class FormBasedAuthenticationMethodType extends PostBasedAuthenticationMe
         }
 
         @Override
-        protected AuthenticationMethod duplicate() {
+        public AuthenticationMethod duplicate() {
             return new FormBasedAuthenticationMethod(this);
         }
 
@@ -177,7 +177,7 @@ public class FormBasedAuthenticationMethodType extends PostBasedAuthenticationMe
 
     @Override
     public boolean isTypeForMethod(AuthenticationMethod method) {
-        return method instanceof FormBasedAuthenticationMethod;
+        return method != null && FormBasedAuthenticationMethod.class.equals(method.getClass());
     }
 
     @Override

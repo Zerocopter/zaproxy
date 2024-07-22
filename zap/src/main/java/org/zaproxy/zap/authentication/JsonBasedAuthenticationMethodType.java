@@ -92,7 +92,7 @@ public class JsonBasedAuthenticationMethodType extends PostBasedAuthenticationMe
         }
 
         @Override
-        protected AuthenticationMethod duplicate() {
+        public AuthenticationMethod duplicate() {
             return new JsonBasedAuthenticationMethod(this);
         }
 
@@ -180,7 +180,7 @@ public class JsonBasedAuthenticationMethodType extends PostBasedAuthenticationMe
 
     @Override
     public boolean isTypeForMethod(AuthenticationMethod method) {
-        return method instanceof JsonBasedAuthenticationMethod;
+        return method != null && JsonBasedAuthenticationMethod.class.equals(method.getClass());
     }
 
     @Override

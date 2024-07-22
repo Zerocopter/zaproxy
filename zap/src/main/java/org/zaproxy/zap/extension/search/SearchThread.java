@@ -207,7 +207,8 @@ public class SearchThread extends Thread {
                                     HistoryReference.TYPE_PROXIED,
                                     HistoryReference.TYPE_ZAP_USER,
                                     HistoryReference.TYPE_SPIDER,
-                                    HistoryReference.TYPE_SPIDER_AJAX);
+                                    HistoryReference.TYPE_SPIDER_AJAX,
+                                    HistoryReference.TYPE_AUTHENTICATION);
             int last = list.size();
             int currentRecordId = 0;
             for (int index = 0; index < last; index++) {
@@ -266,6 +267,15 @@ public class SearchThread extends Thread {
                                 if (!searchAllOccurrences) {
                                     break;
                                 }
+                            }
+                        }
+                    }
+                    if (Type.Tag.equals(reqType) && !pcc.allMatchesProcessed()) {
+                        for (String tag : message.getHistoryRef().getTags()) {
+                            matcher = pattern.matcher(tag);
+                            if (matcher.find()) {
+                                notifyMatchFound(currentRecordId, tag, message, null, 0, 0);
+                                break;
                             }
                         }
                     }

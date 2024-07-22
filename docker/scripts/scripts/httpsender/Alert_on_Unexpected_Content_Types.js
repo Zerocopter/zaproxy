@@ -2,10 +2,6 @@
 // By default it will raise 'Low' level alerts for content types that are not expected to be returned by APIs.
 // But it can be easily changed.
 
-var control, model
-if (!control) control = Java.type("org.parosproxy.paros.control.Control").getSingleton()
-if (!model) model = Java.type("org.parosproxy.paros.model.Model").getSingleton()
-
 var Pattern = Java.type("java.util.regex.Pattern")
 
 var pluginid = 100001	// https://github.com/zaproxy/zaproxy/blob/main/docs/scanners.md
@@ -13,29 +9,18 @@ var pluginid = 100001	// https://github.com/zaproxy/zaproxy/blob/main/docs/scann
 var extensionAlert = control.getExtensionLoader().getExtension(org.zaproxy.zap.extension.alert.ExtensionAlert.NAME)
 
 var expectedTypes = [
-		"application/hal+json",
-		"application/health+json",
-		"application/json",
 		"application/octet-stream",
-		"application/problem+json",
-		"application/problem+xml",
-		"application/soap+xml",
-		"application/vnd.api+json",
-		"application/xml",
-		"application/x-ndjson",
-		"application/x-yaml",
-		"text/x-json",
-		"text/json",
-		"text/yaml",
 		"text/plain"
 	]
+
+var expectedTypeGroups = ["json", "yaml", "xml"]
 
 function sendingRequest(msg, initiator, helper) {
 	// Nothing to do
 }
 
 function responseReceived(msg, initiator, helper) {
-	if (isGloballyExcluded(msg) || initiator == 7) { // CHECK_FOR_UPDATES_INITIATOR
+	if (isGloballyExcluded(msg)) {
 		// Not of interest.
 		return
 	}
@@ -46,7 +31,7 @@ function responseReceived(msg, initiator, helper) {
 			if (ctype.indexOf(";") > 0) {
 				ctype = ctype.substring(0, ctype.indexOf(";"))
 			}
-			if (expectedTypes.indexOf(ctype) < 0) {
+			if (!msg.getResponseHeader().hasContentType(expectedTypeGroups) && expectedTypes.indexOf(ctype) < 0) {
 				// Another rule will complain if theres no type
 		
 				var risk = 1	// Low

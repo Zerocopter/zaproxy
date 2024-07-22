@@ -23,7 +23,9 @@ import org.parosproxy.paros.Constant;
 import org.zaproxy.zap.model.Context;
 import org.zaproxy.zap.view.messagecontainer.http.HttpMessageContainer;
 
-/** @since 2.3.0 */
+/**
+ * @since 2.3.0
+ */
 @SuppressWarnings("serial")
 public abstract class PopupMenuItemContext extends PopupMenuItemSiteNodeContainer {
 
@@ -35,7 +37,6 @@ public abstract class PopupMenuItemContext extends PopupMenuItemSiteNodeContaine
     public PopupMenuItemContext() {
         super(Constant.messages.getString("context.new.title"), true);
         this.context = null;
-        this.setPrecedeWithSeparator(true);
     }
 
     public PopupMenuItemContext(Context context, String parentMenu, String name) {

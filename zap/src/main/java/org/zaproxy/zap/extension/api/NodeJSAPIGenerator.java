@@ -33,6 +33,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
+import org.parosproxy.paros.network.HttpRequestHeader;
 
 public class NodeJSAPIGenerator extends AbstractAPIGenerator {
 
@@ -147,11 +148,9 @@ public class NodeJSAPIGenerator extends AbstractAPIGenerator {
                 className + ".prototype." + createMethodName(element.getName()) + " = function (");
 
         if (hasParams) {
-            out.write("args, ");
+            out.write("args");
         }
-        out.write("callback) {\n");
-
-        // , {'url': url}))
+        out.write(") {\n");
         String reqParams = "";
         if (hasParams) {
             StringBuilder reqParamsBuilder = new StringBuilder();
@@ -167,7 +166,7 @@ public class NodeJSAPIGenerator extends AbstractAPIGenerator {
                                                     + "': args."
                                                     + safeName(name.toLowerCase(Locale.ROOT)))
                             .collect(Collectors.joining(", ")));
-            reqParamsBuilder.append("}");
+            reqParamsBuilder.append(" }");
             reqParams = reqParamsBuilder.toString();
 
             List<ApiParameter> optionalParameters =
@@ -189,15 +188,8 @@ public class NodeJSAPIGenerator extends AbstractAPIGenerator {
                 }
             }
         }
-
-        String methodCb = (type.equals(OTHER_ENDPOINT)) ? "requestOther" : "request";
-        String methodP = (type.equals(OTHER_ENDPOINT)) ? "requestPromiseOther" : "requestPromise";
-
-        // Is the consumer in callback or promise mode
-        out.write("  if (typeof callback === 'function') {\n");
         out.write(
-                "    this.api."
-                        + methodCb
+                "    return this.api.request"
                         + "('/"
                         + component
                         + "/"
@@ -209,26 +201,17 @@ public class NodeJSAPIGenerator extends AbstractAPIGenerator {
             out.write(", ");
             out.write(reqParams);
         }
-        out.write(", callback);\n");
-        out.write("    return;\n");
-        out.write("  }\n");
-        out.write(
-                "  return this.api."
-                        + methodP
-                        + "('/"
-                        + component
-                        + "/"
-                        + type
-                        + "/"
-                        + element.getName()
-                        + "/'");
-        if (hasParams) {
-            out.write(", ");
-            out.write(reqParams);
+        if (type.equals(OTHER_ENDPOINT)) {
+            out.write(", 'other'");
         }
-        out.write(");\n");
-
-        out.write("};\n\n");
+        String httpMethod = element.getDefaultMethod();
+        if (!HttpRequestHeader.GET.equalsIgnoreCase(httpMethod)) {
+            out.write(", '");
+            out.write(httpMethod);
+            out.write('\'');
+        }
+        out.write(")\n");
+        out.write("}\n\n");
     }
 
     private static String safeName(String name) {

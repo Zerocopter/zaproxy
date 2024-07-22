@@ -44,7 +44,7 @@ import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JToolBar;
-import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.parosproxy.paros.Constant;
@@ -148,6 +148,7 @@ public class OutputPanel extends AbstractPanel {
         }
         return jScrollPane;
     }
+
     /**
      * This method initializes txtOutput
      *
@@ -183,7 +184,10 @@ public class OutputPanel extends AbstractPanel {
         }
         return txtOutput;
     }
-    /** @deprecated appendDirty has been deprecated in favour of using {@link #append(String)} */
+
+    /**
+     * @deprecated appendDirty has been deprecated in favour of using {@link #append(String)}
+     */
     @Deprecated
     public void appendDirty(final String msg) {
         doAppend(msg); // Mimic old behavior

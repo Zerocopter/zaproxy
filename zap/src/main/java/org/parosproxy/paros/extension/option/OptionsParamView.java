@@ -52,6 +52,7 @@
 // ZAP: 2022/04/28 Add set and get of the open recent menu
 // ZAP: 2022/09/21 Use format specifiers instead of concatenation when logging.
 // ZAP: 2023/01/10 Tidy up logger.
+// ZAP: 2023/01/21 Add option to set icon size independently of font.
 package org.parosproxy.paros.extension.option;
 
 import java.awt.Window;
@@ -117,14 +118,22 @@ public class OptionsParamView extends AbstractParam {
             BASE_VIEW_KEY + ".usesystemslocaleformat";
 
     public static final String SPLASHSCREEN_OPTION = "view.splashScreen";
-    /** @deprecated (2.12.0) No longer in use. */
+
+    /**
+     * @deprecated (2.12.0) No longer in use.
+     */
     @Deprecated public static final String LARGE_REQUEST_SIZE = "view.largeRequest";
-    /** @deprecated (2.12.0) No longer in use. */
+
+    /**
+     * @deprecated (2.12.0) No longer in use.
+     */
     @Deprecated public static final String LARGE_RESPONSE_SIZE = "view.largeResponse";
 
     public static final String FONT_NAME = "view.fontName";
     public static final String FONT_SIZE = "view.fontSize";
+    public static final String ICON_SIZE = "view.iconSize";
     public static final String SCALE_IMAGES = "view.scaleImages";
+
     public static final String SHOW_DEV_WARNING = "view.showDevWarning";
     public static final String LOOK_AND_FEEL = "view.lookAndFeel";
     public static final String LOOK_AND_FEEL_CLASS = "view.lookAndFeelClass";
@@ -170,6 +179,7 @@ public class OptionsParamView extends AbstractParam {
             new EnumMap<>(FontUtils.FontType.class);
     private Map<FontUtils.FontType, Integer> fontSizes = new EnumMap<>(FontUtils.FontType.class);
     private Map<FontUtils.FontType, String> fontNames = new EnumMap<>(FontUtils.FontType.class);
+    private int iconSize = 16;
     private List<String> recentSessions;
 
     /**
@@ -242,6 +252,7 @@ public class OptionsParamView extends AbstractParam {
             fontNames.put(fontType, getString(getFontNameConfKey(fontType), ""));
             fontSizes.put(fontType, getInt(getFontSizeConfKey(fontType), -1));
         }
+        iconSize = getInt(ICON_SIZE, 16);
 
         scaleImages = getBoolean(SCALE_IMAGES, true);
         showDevWarning = getBoolean(SHOW_DEV_WARNING, true);
@@ -265,12 +276,16 @@ public class OptionsParamView extends AbstractParam {
         Stream.of(getConfig().getStringArray(RECENT_SESSIONS_KEY)).forEach(recentSessions::add);
     }
 
-    /** @return Returns the skipImage. */
+    /**
+     * @return Returns the skipImage.
+     */
     public int getProcessImages() {
         return processImages;
     }
 
-    /** @param processImages 0 = not to process. Other = process images */
+    /**
+     * @param processImages 0 = not to process. Other = process images
+     */
     public void setProcessImages(int processImages) {
         this.processImages = processImages;
         getConfig().setProperty(PROCESS_IMAGES, Integer.toString(processImages));
@@ -486,32 +501,44 @@ public class OptionsParamView extends AbstractParam {
         getConfig().setProperty(SPLASHSCREEN_OPTION, showSplashScreen);
     }
 
-    /** @deprecated (2.12.0) No longer in use. */
+    /**
+     * @deprecated (2.12.0) No longer in use.
+     */
     @Deprecated
     public int getLargeRequestSize() {
         return 100000;
     }
 
-    /** @deprecated (2.12.0) No longer in use. */
+    /**
+     * @deprecated (2.12.0) No longer in use.
+     */
     @Deprecated
     public void setLargeRequestSize(int largeRequestSize) {}
 
-    /** @deprecated (2.12.0) No longer in use. */
+    /**
+     * @deprecated (2.12.0) No longer in use.
+     */
     @Deprecated
     public int getLargeResponseSize() {
         return 100000;
     }
 
-    /** @deprecated (2.12.0) No longer in use. */
+    /**
+     * @deprecated (2.12.0) No longer in use.
+     */
     @Deprecated
     public void setLargeResponseSize(int largeResponseSize) {}
 
-    /** @since 2.11.0 */
+    /**
+     * @since 2.11.0
+     */
     public boolean isAllowAppIntegrationInContainers() {
         return allowAppIntegrationInContainers;
     }
 
-    /** @since 2.11.0 */
+    /**
+     * @since 2.11.0
+     */
     public void setAllowAppIntegrationInContainers(boolean allowAppIntegrationInContainers) {
         this.allowAppIntegrationInContainers = allowAppIntegrationInContainers;
         getConfig()
@@ -545,6 +572,15 @@ public class OptionsParamView extends AbstractParam {
         getConfig().setProperty(getFontSizeConfKey(fontType), fontSize);
     }
 
+    public int getIconSize() {
+        return iconSize;
+    }
+
+    public void setIconSize(int iconSize) {
+        this.iconSize = iconSize;
+        getConfig().setProperty(ICON_SIZE, iconSize);
+    }
+
     /**
      * @deprecated (2.8.0) Replaced by {@link
      *     #getFontName(org.zaproxy.zap.utils.FontUtils.FontType)}.
@@ -573,7 +609,7 @@ public class OptionsParamView extends AbstractParam {
     }
 
     /**
-     * Gets the the name of the selected look and feel.
+     * Gets the name of the selected look and feel.
      *
      * @return the name, might be {@code null} or empty if none selected (i.e. using default).
      * @see #getLookAndFeelInfo()

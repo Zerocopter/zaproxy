@@ -27,7 +27,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
-import org.apache.commons.lang.SystemUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdesktop.swingx.JXTree;
@@ -209,7 +209,7 @@ public final class AddOnRunIssuesUtils {
                 case CYCLIC:
                     message =
                             Constant.messages.getString(
-                                    "cfu.warn.addon.with.missing.requirements.addon.id");
+                                    "cfu.warn.addon.with.missing.requirements.addon.cyclic");
                     break;
                 case OLDER_VERSION:
                     // Do not set a message, the state is already reported as requiring an update.
