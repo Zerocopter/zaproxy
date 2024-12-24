@@ -1,6 +1,18 @@
 # Changelog
 All notable changes to the docker containers will be documented in this file.
 
+### 2024-12-10
+- Updated to use Webswing 24.2.2.
+
+### 2024-09-13
+- Update the zap.sh script to use the cgroup memory limit when the IS_CONTAINERIZED environment variable is set to "true".
+
+### 2024-08-30
+- Updated the API-Minimal scan policy.
+
+### 2024-08-28
+- Change Weekly Docker image to use `debian:bookworm-slim` instead of `bullseye-slim`, it will now start using Java 17.
+
 ### 2024-07-16
 - Fallback to usage of Graal.js script engine if Nashorn is not available, in the API packaged scan.
 

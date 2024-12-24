@@ -1,5 +1,5 @@
 # Contributing to ZAP
-ZAP is a community project, and we are always delighted to welcome new contributors!
+ZAP by Checkmarx is a community project, and we are always delighted to welcome new contributors!
 
 There are lots of ways you can contribute for full details see the [Contributing Guide](https://www.zaproxy.org/docs/contribute/).
 
@@ -13,7 +13,7 @@ If they don't help then please ask on the [User Group](https://groups.google.com
 ## Found an Issue?
 If you have found a bug then raise an issue on the zaproxy repo: https://github.com/zaproxy/zaproxy/issues
 
-Its worth checking to see if its already been reported, and including as much information as you can to help us diagnose your problem.
+It's worth checking to see if it's already been reported, and including as much information as you can to help us diagnose your problem.
 
 This FAQ explains some useful steps you can follow: https://www.zaproxy.org/faq/somethings-not-working-what-should-i-do/
 
