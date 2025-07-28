@@ -33,6 +33,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.parosproxy.paros.core.scanner.Alert.Builder;
 import org.parosproxy.paros.db.RecordAlert;
+import org.parosproxy.paros.model.HistoryReference;
 
 class AlertUnitTest {
 
@@ -52,6 +53,19 @@ class AlertUnitTest {
         given(recordAlert.getHistoryId()).willReturn(historyId);
         // When
         Alert alert = new Alert(recordAlert);
+        // Then
+        assertThat(alert.getHistoryId(), is(equalTo(historyId)));
+    }
+
+    @Test
+    void shouldHaveHistoryIdFromRecordAlertAndHistoryReference() {
+        // Given
+        RecordAlert recordAlert = mock(RecordAlert.class);
+        HistoryReference historyReference = mock(HistoryReference.class);
+        int historyId = 42;
+        given(recordAlert.getHistoryId()).willReturn(historyId);
+        // When
+        Alert alert = new Alert(recordAlert, historyReference);
         // Then
         assertThat(alert.getHistoryId(), is(equalTo(historyId)));
     }
@@ -274,5 +288,17 @@ class AlertUnitTest {
         System.out.println(tags);
         assertThat(tags.containsKey(cwe2Key), is(equalTo(true)));
         assertThat(tags.get(cwe2Key), is(equalTo(cwe2Url)));
+    }
+
+    @Test
+    void shouldHaveSameHistoryIdAsOldInstance() {
+        // Given
+        int historyId = 123;
+        Alert alert = new Alert(1);
+        alert.setHistoryId(historyId);
+        // When
+        Alert newAlert = alert.newInstance();
+        // Then
+        assertThat(newAlert.getHistoryId(), is(equalTo(historyId)));
     }
 }

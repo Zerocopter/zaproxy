@@ -251,7 +251,6 @@ public class Alert implements Comparable<Alert> {
                 recordAlert.getConfidence(),
                 recordAlert.getAlert());
 
-        historyId = recordAlert.getHistoryId();
         HistoryReference hRef = null;
         try {
             hRef = new HistoryReference(recordAlert.getHistoryId());
@@ -268,6 +267,7 @@ public class Alert implements Comparable<Alert> {
     }
 
     private void init(RecordAlert recordAlert, HistoryReference ref) {
+        historyId = recordAlert.getHistoryId();
         this.alertId = recordAlert.getAlertId();
         this.source = Source.getSource(recordAlert.getSourceId());
         setDetail(
@@ -603,6 +603,7 @@ public class Alert implements Comparable<Alert> {
      */
     public Alert newInstance() {
         Alert item = new Alert(this.pluginId);
+        item.setHistoryId(historyId);
         item.setRiskConfidence(this.risk, this.confidence);
         item.setName(this.name);
         item.setDetail(

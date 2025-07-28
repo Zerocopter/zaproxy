@@ -59,6 +59,7 @@
 // ZAP: 2023/05/17 Add option for the maximum number of alerts per rule.
 // ZAP: 2023/07/06 Deprecate delayInMs.
 // ZAP: 2023/11/21 Add option to encode cookie values.
+// ZAP: 2025/03/31 Add an option for injection of bodies with no or text/plain content type.
 package org.parosproxy.paros.core.scanner;
 
 import java.util.ArrayList;
@@ -84,6 +85,7 @@ public class ScannerParam extends AbstractParam {
     private static final String DELAY_IN_MS = ACTIVE_SCAN_BASE_KEY + ".delayInMs";
     private static final String INJECT_PLUGIN_ID_IN_HEADER = ACTIVE_SCAN_BASE_KEY + ".pluginHeader";
     private static final String HANDLE_ANTI_CSRF_TOKENS = ACTIVE_SCAN_BASE_KEY + ".antiCSRF";
+    static final String EXCLUDE_ANTI_CSRF_TOKENS = ACTIVE_SCAN_BASE_KEY + ".excludeAntiCsrfTokens";
     private static final String PROMPT_IN_ATTACK_MODE = ACTIVE_SCAN_BASE_KEY + ".attackPrompt";
     private static final String RESCAN_IN_ATTACK_MODE = ACTIVE_SCAN_BASE_KEY + ".attackRescan";
     private static final String PROMPT_TO_CLEAR_FINISHED = ACTIVE_SCAN_BASE_KEY + ".clearFinished";
@@ -149,6 +151,7 @@ public class ScannerParam extends AbstractParam {
     public static final int TARGET_COOKIE = 1 << 2;
     public static final int TARGET_HTTPHEADERS = 1 << 3;
     public static final int TARGET_URLPATH = 1 << 4;
+    public static final int TARGET_PLAINBODY = 1 << 5;
 
     public static final int RPC_MULTIPART = 1;
     public static final int RPC_XML = 1 << 1;
@@ -160,7 +163,8 @@ public class ScannerParam extends AbstractParam {
     public static final int RPC_USERDEF = 1 << 8;
 
     // Defaults for initial configuration
-    public static final int TARGET_INJECTABLE_DEFAULT = TARGET_QUERYSTRING | TARGET_POSTDATA;
+    public static final int TARGET_INJECTABLE_DEFAULT =
+            TARGET_QUERYSTRING | TARGET_POSTDATA | TARGET_PLAINBODY;
     public static final int TARGET_ENABLED_RPC_DEFAULT =
             RPC_MULTIPART | RPC_XML | RPC_JSON | RPC_GWT | RPC_ODATA | RPC_DWR | RPC_CUSTOM;
     private static final int DEFAULT_MAX_CHART_TIME_IN_MINS = 10;
@@ -173,6 +177,7 @@ public class ScannerParam extends AbstractParam {
     private int maxScansInUI = 5;
     private boolean injectPluginIdInHeader = false;
     private boolean handleAntiCSRFTokens = true;
+    private boolean excludeAntiCsrfTokens = true;
     private boolean promptInAttackMode = true;
     private boolean rescanInAttackMode = true;
     private boolean promptToClearFinishedScans = true;
@@ -257,6 +262,7 @@ public class ScannerParam extends AbstractParam {
         this.injectPluginIdInHeader = getBoolean(INJECT_PLUGIN_ID_IN_HEADER, false);
 
         this.handleAntiCSRFTokens = getBoolean(HANDLE_ANTI_CSRF_TOKENS, true);
+        excludeAntiCsrfTokens = getBoolean(EXCLUDE_ANTI_CSRF_TOKENS, true);
 
         this.promptInAttackMode = getBoolean(PROMPT_IN_ATTACK_MODE, true);
 
@@ -533,6 +539,28 @@ public class ScannerParam extends AbstractParam {
     public void setHandleAntiCSRFTokens(boolean handleAntiCSRFTokens) {
         this.handleAntiCSRFTokens = handleAntiCSRFTokens;
         getConfig().setProperty(HANDLE_ANTI_CSRF_TOKENS, handleAntiCSRFTokens);
+    }
+
+    /**
+     * Tells whether or not the active scanner should exclude anti-csrf tokens from the scan.
+     *
+     * @return {@code true} if anti-csrf tokens will be excluded, {@code false} otherwise.
+     * @since 2.17.0
+     */
+    public boolean isExcludeAntiCsrfTokens() {
+        return excludeAntiCsrfTokens;
+    }
+
+    /**
+     * Sets whether or not the active scanner should exclude anti-csrf tokens from the scan.
+     *
+     * @param excludeAntiCsrfTokens {@code true} if anti-csrf tokens should be excluded, {@code
+     *     false} otherwise.
+     * @since 2.17.0
+     */
+    public void setExcludeAntiCsrfTokens(boolean excludeAntiCsrfTokens) {
+        this.excludeAntiCsrfTokens = excludeAntiCsrfTokens;
+        getConfig().setProperty(EXCLUDE_ANTI_CSRF_TOKENS, excludeAntiCsrfTokens);
     }
 
     public boolean isRescanInAttackMode() {

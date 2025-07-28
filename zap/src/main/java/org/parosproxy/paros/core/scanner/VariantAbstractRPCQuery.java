@@ -59,9 +59,17 @@ public abstract class VariantAbstractRPCQuery implements Variant {
             try {
                 setRequestContent(msg.getRequestBody().toString());
             } catch (Exception e) {
-                logger.warn("Failed to parse the request body: {}", e.getMessage(), e);
+                logger.warn(
+                        "Failed to parse the request body for url {} : {}",
+                        msg.getRequestHeader().getURI(),
+                        e.getMessage(),
+                        e);
             }
         }
+    }
+
+    public void addParameter(RPCParameter param) {
+        listParam.add(param);
     }
 
     /**
@@ -187,58 +195,4 @@ public abstract class VariantAbstractRPCQuery implements Variant {
     public abstract String getEscapedValue(String value, boolean toQuote);
 
     public abstract String getUnescapedValue(String value);
-
-    /** Inner support class */
-    protected class RPCParameter implements Comparable<RPCParameter> {
-        private String name;
-        private String value;
-        private int beginOffset;
-        private int endOffset;
-        private boolean toQuote;
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public String getValue() {
-            return value;
-        }
-
-        public void setValue(String value) {
-            this.value = value;
-        }
-
-        public int getBeginOffset() {
-            return beginOffset;
-        }
-
-        public void setBeginOffset(int beginOffset) {
-            this.beginOffset = beginOffset;
-        }
-
-        public int getEndOffset() {
-            return endOffset;
-        }
-
-        public void setEndOffset(int endOffset) {
-            this.endOffset = endOffset;
-        }
-
-        public boolean isToQuote() {
-            return toQuote;
-        }
-
-        public void setToQuote(boolean toQuote) {
-            this.toQuote = toQuote;
-        }
-
-        @Override
-        public int compareTo(RPCParameter t) {
-            return this.beginOffset - t.beginOffset;
-        }
-    }
 }
