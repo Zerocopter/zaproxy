@@ -33,8 +33,11 @@ import java.util.Properties;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.Vector;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.swing.JTree;
 import javax.swing.tree.TreePath;
+import org.apache.commons.httpclient.URIException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -68,6 +71,7 @@ import org.zaproxy.zap.extension.XmlReporterExtension;
 import org.zaproxy.zap.extension.help.ExtensionHelp;
 import org.zaproxy.zap.model.SessionStructure;
 import org.zaproxy.zap.model.Target;
+import org.zaproxy.zap.utils.ThreadUtils;
 import org.zaproxy.zap.view.popup.MenuWeights;
 
 public class ExtensionAlert extends ExtensionAdaptor
@@ -91,6 +95,9 @@ public class ExtensionAlert extends ExtensionAdaptor
     private OptionsAlertPanel optionsPanel = null;
     private Properties alertOverrides = new Properties();
     private AlertAddDialog dialogAlertAdd;
+
+    private Map<String, Map<String, AtomicInteger>> siteToSystemicAlertMap =
+            new ConcurrentHashMap<>();
 
     public ExtensionAlert() {
         super(NAME);
@@ -168,7 +175,7 @@ public class ExtensionAlert extends ExtensionAdaptor
         return optionsPanel;
     }
 
-    private AlertParam getAlertParam() {
+    protected AlertParam getAlertParam() {
         if (alertParam == null) {
             alertParam = new AlertParam();
         }
@@ -178,6 +185,15 @@ public class ExtensionAlert extends ExtensionAdaptor
     public void alertFound(Alert alert, HistoryReference ref) {
         if (isInvalid(alert)) {
             return;
+        }
+
+        if (alert.getMessage().getHistoryRef() != null) {
+            ref = alert.getMessage().getHistoryRef();
+        }
+        try {
+            alert.setNodeName(SessionStructure.getNodeName(getModel(), alert.getMessage()));
+        } catch (URIException e) {
+            LOGGER.error(e.getMessage(), e);
         }
 
         try {
@@ -216,29 +232,36 @@ public class ExtensionAlert extends ExtensionAdaptor
             this.applyOverrides(alert);
 
             writeAlertToDB(alert, ref);
+        } catch (Exception e) {
+            LOGGER.error(e.getMessage(), e);
+        }
+
+        final HistoryReference fRef = ref;
+        ThreadUtils.invokeAndWaitHandled(() -> alertFoundEventHandler(alert, fRef));
+    }
+
+    private void alertFoundEventHandler(Alert alert, HistoryReference ref) {
+        try {
+            synchronized (this.getTreeModel()) {
+                if (this.getTreeModel().addPathEventHandler(alert) != null) {
+                    if (isInFilter(alert)) {
+                        this.getFilteredTreeModel().addPath(alert);
+                    }
+                    if (getView() != null) {
+                        getAlertPanel().expandRoot();
+                        this.recalcAlerts();
+                    }
+                } else {
+                    return;
+                }
+            }
 
             try {
-                if (getView() == null || EventQueue.isDispatchThread()) {
-                    SessionStructure.addPath(Model.getSingleton(), ref, alert.getMessage());
-                } else {
-                    final HistoryReference fRef = ref;
-                    final HttpMessage fMsg = alert.getMessage();
-                    EventQueue.invokeAndWait(
-                            new Runnable() {
-
-                                @Override
-                                public void run() {
-                                    SessionStructure.addPath(Model.getSingleton(), fRef, fMsg);
-                                }
-                            });
-                }
-
+                SessionStructure.addPath(Model.getSingleton(), ref, alert.getMessage());
                 ref.addAlert(alert);
             } catch (Exception e) {
                 LOGGER.error(e.getMessage(), e);
             }
-
-            addAlertToTree(alert);
 
             // Clear the message so that it can be GC'ed
             alert.setMessage(null);
@@ -484,16 +507,24 @@ public class ExtensionAlert extends ExtensionAdaptor
 
     AlertTreeModel getTreeModel() {
         if (treeModel == null) {
-            treeModel = new AlertTreeModel();
+            treeModel = new AlertTreeModel(this);
         }
         return treeModel;
     }
 
     private AlertTreeModel getFilteredTreeModel() {
         if (filteredTreeModel == null) {
-            filteredTreeModel = new AlertTreeModel();
+            filteredTreeModel = new AlertTreeModel(this);
         }
         return filteredTreeModel;
+    }
+
+    /**
+     * Returns a YAML representation of the Alert tree. Only for use in testing / debugging! It
+     * should not be relied upon and may be removed in a future version without being deprecated.
+     */
+    public String getTextAlertTree() {
+        return TextAlertTree.toString(getTreeModel());
     }
 
     private void writeAlertToDB(Alert alert, HistoryReference ref)
@@ -525,7 +556,8 @@ public class ExtensionAlert extends ExtensionAdaptor
                         alert.getSourceHistoryId(),
                         alert.getSource().getId(),
                         alert.getAlertRef(),
-                        alert.getInputVector());
+                        alert.getInputVector(),
+                        alert.getNodeName());
 
         int alertId = recordAlert.getAlertId();
         alert.setAlertId(alertId);
@@ -544,7 +576,7 @@ public class ExtensionAlert extends ExtensionAdaptor
             updateAlertInDB(alert);
             hRef.updateAlert(alert);
             publishAlertEvent(alert, AlertEventPublisher.ALERT_CHANGED_EVENT);
-            updateAlertInTree(alert, alert);
+            updateAlertInTree(alert);
         }
     }
 
@@ -568,7 +600,8 @@ public class ExtensionAlert extends ExtensionAdaptor
                 alert.getCweId(),
                 alert.getWascId(),
                 alert.getSourceHistoryId(),
-                alert.getInputVector());
+                alert.getInputVector(),
+                alert.getNodeName());
 
         int alertId = alert.getAlertId();
         TableAlertTag tableAlertTag = getModel().getDb().getTableAlertTag();
@@ -589,20 +622,31 @@ public class ExtensionAlert extends ExtensionAdaptor
         this.alertPanel.getAlertViewPanel().displayAlert(alert);
     }
 
+    /**
+     * @deprecated (2.17.0) Use {@link #updateAlertInTree(Alert)} instead.
+     */
+    @Deprecated
     public void updateAlertInTree(Alert originalAlert, Alert alert) {
+        this.updateAlertInTree(alert);
+    }
+
+    /**
+     * @since 2.17.0
+     */
+    public void updateAlertInTree(Alert alert) {
         if (Constant.isLowMemoryOptionSet()) {
             return;
         }
 
         if (getView() == null || EventQueue.isDispatchThread()) {
-            updateAlertInTreeEventHandler(originalAlert, alert);
+            updateAlertInTreeEventHandler(alert);
         } else {
             try {
                 EventQueue.invokeAndWait(
                         new Runnable() {
                             @Override
                             public void run() {
-                                updateAlertInTreeEventHandler(originalAlert, alert);
+                                updateAlertInTreeEventHandler(alert);
                             }
                         });
             } catch (Exception e) {
@@ -611,18 +655,21 @@ public class ExtensionAlert extends ExtensionAdaptor
         }
     }
 
-    private void updateAlertInTreeEventHandler(Alert originalAlert, Alert alert) {
-        this.getTreeModel().updatePath(originalAlert, alert);
+    private void updateAlertInTreeEventHandler(Alert alert) {
+        this.getTreeModel().updatePath(alert);
         if (isInFilter(alert)) {
-            this.getFilteredTreeModel().updatePath(originalAlert, alert);
+            this.getFilteredTreeModel().updatePath(alert);
         }
         this.recalcAlerts();
 
         if (hasView()) {
             JTree alertTree = this.getAlertPanel().getTreeAlert();
-            TreePath alertPath = new TreePath(getTreeModel().getAlertNode(alert).getPath());
-            alertTree.setSelectionPath(alertPath);
-            alertTree.scrollPathToVisible(alertPath);
+            AlertNode node = getTreeModel().getAlertNode(alert);
+            if (node != null) {
+                TreePath alertPath = new TreePath(node.getPath());
+                alertTree.setSelectionPath(alertPath);
+                alertTree.scrollPathToVisible(alertPath);
+            }
         }
     }
 
@@ -647,11 +694,12 @@ public class ExtensionAlert extends ExtensionAdaptor
     }
 
     private void sessionChangedEventHandler(Session session) {
-        setTreeModel(new AlertTreeModel());
+        setTreeModel(new AlertTreeModel(this));
 
         treeModel = null;
         filteredTreeModel = null;
         hrefs = new HashMap<>();
+        siteToSystemicAlertMap = new ConcurrentHashMap<>();
 
         if (session == null) {
             // Null session indicated we're shutting down
@@ -1041,8 +1089,8 @@ public class ExtensionAlert extends ExtensionAdaptor
     public void sessionScopeChanged(Session session) {
         // Have to recheck all alerts to see if they are in scope
         synchronized (this.getTreeModel()) {
-            ((AlertNode) this.getFilteredTreeModel().getRoot()).removeAllChildren();
-            AlertNode root = (AlertNode) this.getTreeModel().getRoot();
+            this.getFilteredTreeModel().getRoot().removeAllChildren();
+            AlertNode root = this.getTreeModel().getRoot();
             filterTree(root);
             this.getFilteredTreeModel().nodeStructureChanged(root);
         }
@@ -1051,8 +1099,8 @@ public class ExtensionAlert extends ExtensionAdaptor
     }
 
     private void filterTree(AlertNode node) {
-        if (node.getUserObject() != null) {
-            Alert alert = node.getUserObject();
+        Alert alert = node.getAlert();
+        if (alert != null) {
             if (this.isInFilter(alert)) {
                 this.getFilteredTreeModel().addPath(alert);
             }
@@ -1216,5 +1264,32 @@ public class ExtensionAlert extends ExtensionAdaptor
      */
     public boolean isNewAlert(Alert alertToCheck) {
         return (getTreeModel().getAlertNode(alertToCheck) == null);
+    }
+
+    /**
+     * Returns true if the given alert is over the systemic limit. If the alert is systemic then it
+     * will increment the count of that type of alert.
+     *
+     * @since 2.17.0
+     */
+    public boolean isOverSystemicLimit(Alert alert) {
+        if (alert == null || !alert.isSystemic()) {
+            return false;
+        }
+        try {
+            // Always count locally, even if the systemicLimit is zero as that could be changed
+            Map<String, AtomicInteger> m =
+                    siteToSystemicAlertMap.computeIfAbsent(
+                            SessionStructure.getHostName(alert.getMsgUri()),
+                            a -> new ConcurrentHashMap<>());
+            int count =
+                    m.computeIfAbsent(alert.getAlertRef(), a -> new AtomicInteger())
+                            .incrementAndGet();
+            int limit = getAlertParam().getSystemicLimit();
+            return limit > 0 && count > limit;
+        } catch (URIException e) {
+            // Ignore
+        }
+        return false;
     }
 }

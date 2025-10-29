@@ -34,6 +34,7 @@ public class AlertNode extends DefaultMutableTreeNode {
     private String nodeName = null;
     private int risk = -1;
     private Alert alert;
+    private boolean systemic;
 
     public AlertNode(int risk, String nodeName) {
         this(risk, nodeName, null);
@@ -46,16 +47,40 @@ public class AlertNode extends DefaultMutableTreeNode {
         this.childComparator = new AlertNodeComparatorWrapper(childComparator);
     }
 
+    /** Sets an alert for this node. The {@link #setAlert(Alert)} method should be used instead. */
     @Override
     public void setUserObject(Object userObject) {
-        if (!(userObject instanceof Alert)) {
+        if (userObject instanceof Alert alert) {
+            this.setAlert(alert);
+        } else {
             throw new IllegalArgumentException("Parameter userObject must be an Alert.");
         }
-        this.alert = (Alert) userObject;
     }
 
+    /**
+     * Set the alert associated with this node.
+     *
+     * @since 2.17.0
+     */
+    public void setAlert(Alert alert) {
+        this.alert = alert;
+    }
+
+    /**
+     * Returns an alert associated with this node. The {@link #getAlert()} method should be used
+     * instead. This method will be change to throw an exception in a future release.
+     */
     @Override
     public Alert getUserObject() {
+        return this.getAlert();
+    }
+
+    /**
+     * Gets the alert associated with this node.
+     *
+     * @since 2.17.0
+     */
+    public Alert getAlert() {
         return alert;
     }
 
@@ -119,9 +144,6 @@ public class AlertNode extends DefaultMutableTreeNode {
 
     @Override
     public String toString() {
-        if (this.getChildCount() > 1) {
-            return nodeName + " (" + this.getChildCount() + ")";
-        }
         return nodeName;
     }
 
@@ -135,6 +157,14 @@ public class AlertNode extends DefaultMutableTreeNode {
 
     public int getRisk() {
         return risk;
+    }
+
+    public boolean isSystemic() {
+        return systemic;
+    }
+
+    public void setSystemic(boolean systemic) {
+        this.systemic = systemic;
     }
 
     private static class AlertNodeComparatorWrapper implements Comparator<TreeNode> {

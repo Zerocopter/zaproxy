@@ -23,7 +23,7 @@ import java.awt.Component;
 import javax.swing.ImageIcon;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultTreeCellRenderer;
-import org.parosproxy.paros.core.scanner.Alert;
+import org.parosproxy.paros.Constant;
 import org.zaproxy.zap.utils.DisplayUtils;
 import org.zaproxy.zap.view.SiteMapTreeCellRenderer;
 
@@ -64,8 +64,7 @@ public class AlertTreeCellRenderer extends DefaultTreeCellRenderer {
 
         super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);
 
-        if (value instanceof AlertNode) {
-            AlertNode alertNode = (AlertNode) value;
+        if (value instanceof AlertNode alertNode) {
             if (alertNode.isRoot()) {
                 if (expanded) {
                     this.setIcon(FOLDER_OPEN_ICON);
@@ -73,11 +72,20 @@ public class AlertTreeCellRenderer extends DefaultTreeCellRenderer {
                     this.setIcon(FOLDER_CLOSED_ICON);
                 }
             } else if (alertNode.getParent().isRoot()) {
-                // Add the alert flag icon
-                Alert alert = alertNode.getUserObject();
-                this.setIcon(alert.getIcon());
+                this.setIcon(alertNode.getAlert().getIcon());
             } else {
                 this.setIcon(LEAF_ICON);
+            }
+
+            if (alertNode.getChildCount() > 1) {
+                if (alertNode.isSystemic()) {
+                    this.setText(
+                            Constant.messages.getString("alert.label.namesystemic", alertNode));
+                } else {
+                    this.setText(
+                            Constant.messages.getString(
+                                    "alert.label.namecount", alertNode, alertNode.getChildCount()));
+                }
             }
         }
         return this;

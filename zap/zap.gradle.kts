@@ -96,7 +96,7 @@ dependencies {
     api("commons-httpclient:commons-httpclient:3.1")
     api("commons-io:commons-io:2.18.0")
     api("commons-lang:commons-lang:2.6")
-    api("org.apache.commons:commons-lang3:3.17.0")
+    api("org.apache.commons:commons-lang3:3.18.0")
     api("org.apache.commons:commons-text:1.13.0")
     implementation("edu.umass.cs.benchlab:harlib:1.1.3")
     api("javax.help:javahelp:2.0.05")
@@ -113,8 +113,8 @@ dependencies {
     api("org.jgrapht:jgrapht-core:0.9.0")
     api("org.swinglabs.swingx:swingx-all:1.6.5-1")
 
-    implementation("com.formdev:flatlaf:3.6.1")
-    implementation("com.formdev:flatlaf-swingx:3.6.1")
+    implementation("com.formdev:flatlaf:3.6.2")
+    implementation("com.formdev:flatlaf-swingx:3.6.2")
 
     runtimeOnly("commons-logging:commons-logging:1.3.5")
     runtimeOnly("xom:xom:1.3.9") {
@@ -128,6 +128,7 @@ dependencies {
     testCompileOnly("com.google.code.findbugs:findbugs-annotations:3.0.1")
 
     testImplementation("net.bytebuddy:byte-buddy:1.17.4")
+    testImplementation("org.assertj:assertj-core:3.27.6")
     testImplementation("org.hamcrest:hamcrest-core:3.0")
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.1")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

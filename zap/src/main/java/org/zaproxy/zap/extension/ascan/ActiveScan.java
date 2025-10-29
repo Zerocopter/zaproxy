@@ -81,6 +81,9 @@ public class ActiveScan extends org.parosproxy.paros.core.scanner.Scanner
 
     private static final Logger LOGGER = LogManager.getLogger(ActiveScan.class);
 
+    private boolean persistTemporaryMessages;
+    private boolean warnDbFull = true;
+
     @Deprecated
     public ActiveScan(
             String displayName,
@@ -110,6 +113,8 @@ public class ActiveScan extends org.parosproxy.paros.core.scanner.Scanner
             ScanPolicy scanPolicy,
             RuleConfigParam ruleConfigParam) {
         super(scannerParam, scanPolicy, ruleConfigParam);
+        persistTemporaryMessages = scannerParam.isPersistTemporaryMessages();
+
         this.displayName = displayName;
         this.maxResultsToList = scannerParam.getMaxResultsToList();
         // Easiest way to get the messages and alerts ;)
@@ -277,6 +282,12 @@ public class ActiveScan extends org.parosproxy.paros.core.scanner.Scanner
 
     @Override
     public void notifyNewMessage(final HttpMessage msg) {
+        this.rcTotals.incResponseCodeCount(msg.getResponseHeader().getStatusCode());
+
+        if (!persistTemporaryMessages) {
+            return;
+        }
+
         HistoryReference hRef = msg.getHistoryRef();
         if (hRef == null) {
             try {
@@ -288,13 +299,18 @@ public class ActiveScan extends org.parosproxy.paros.core.scanner.Scanner
                 msg.setHistoryRef(null);
                 hRefs.add(hRef.getHistoryId());
             } catch (HttpMalformedHeaderException | DatabaseException e) {
-                LOGGER.error(e.getMessage(), e);
+                if (hasCause(e, "Data File size limit is reached")) {
+                    if (warnDbFull) {
+                        warnDbFull = false;
+                        LOGGER.warn("Unable to persist temporary message, database is full.", e);
+                    }
+                } else {
+                    LOGGER.error(e.getMessage(), e);
+                }
             }
         } else {
             hRefs.add(hRef.getHistoryId());
         }
-
-        this.rcTotals.incResponseCodeCount(msg.getResponseHeader().getStatusCode());
 
         if (hRef != null && View.isInitialised()) {
             // Very large lists significantly impact the UI responsiveness
@@ -304,6 +320,18 @@ public class ActiveScan extends org.parosproxy.paros.core.scanner.Scanner
             }
             addHistoryReferenceInEdt(hRef);
         }
+    }
+
+    private static boolean hasCause(Exception e, String wantedMessage) {
+        Throwable cause = e.getCause();
+        if (cause == null) {
+            return false;
+        }
+        String message = cause.getMessage();
+        if (message == null) {
+            return false;
+        }
+        return message.contains(wantedMessage);
     }
 
     private void addHistoryReferenceInEdt(final HistoryReference hRef) {

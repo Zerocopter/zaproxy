@@ -21,8 +21,11 @@ package org.parosproxy.paros.network;
 
 import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
@@ -39,6 +42,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.commons.httpclient.URI;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -55,14 +62,20 @@ import org.zaproxy.zap.network.HttpEncodingDeflate;
 import org.zaproxy.zap.network.HttpEncodingGzip;
 import org.zaproxy.zap.network.HttpRequestBody;
 import org.zaproxy.zap.network.HttpResponseBody;
+import org.zaproxy.zap.testutils.Log4jTestAppender;
 import org.zaproxy.zap.users.User;
 
 /** Unit test for {@link HttpMessage}. */
 class HttpMessageUnitTest {
 
+    private Log4jTestAppender testAppender;
+
     @AfterEach
-    void cleanUp() {
+    void cleanUp() throws Exception {
         HttpMessage.setContentEncodingsHandler(null);
+        HttpMessage.setCharsetProvider(null);
+        HttpMessage.resetWarnedContentTypeValues();
+        Configurator.reconfigure(getClass().getResource("/log4j2-test.properties").toURI());
     }
 
     @Test
@@ -574,26 +587,123 @@ class HttpMessageUnitTest {
         assertThat(webSocketUpgrade, is(equalTo(false)));
     }
 
+    @Test
+    void shouldUseCharsetProviderWhenSettingRequestBody() {
+        // Given
+        HttpMessage.setCharsetProvider((header, body) -> "UTF-16BE");
+        HttpMessage message = new HttpMessage();
+        withLoggerAppender();
+        // When
+        message.setRequestBody("");
+        // Then
+        assertThat(message.getRequestBody().getCharset(), is(equalTo("UTF-16BE")));
+        assertThat(testAppender.getLogEvents(), hasSize(0));
+    }
+
     @ParameterizedTest
     @MethodSource(value = "setBodyData")
     void shouldUseContentTypeCharsetWhenSettingRequestBody(
-            String charset, String body, String expectedBody) throws Exception {
+            String charset, String expectedCharset, String body, String expectedBody)
+            throws Exception {
         // Given
         HttpMessage message = new HttpMessage();
         message.setRequestHeader(
                 new HttpRequestHeader(
                         "GET / HTTP/1.1\r\nContent-Type: text/plain; charset=" + charset));
+        withLoggerAppender();
         // When
         message.setRequestBody(body);
         // Then
-        assertThat(message.getRequestBody().getCharset(), is(equalTo(charset)));
+        assertThat(message.getRequestBody().getCharset(), is(equalTo(expectedCharset)));
         assertThat(message.getRequestBody().toString(), is(equalTo(expectedBody)));
+        assertThat(testAppender.getLogEvents(), hasSize(0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"unknown", "!~invalid~name~"})
+    void shouldUseDefaultAndWarnOnUnknownCharsetWhenSettingRequestBody(String charset)
+            throws Exception {
+        // Given
+        HttpMessage message = new HttpMessage();
+        message.setRequestHeader(
+                new HttpRequestHeader(
+                        "GET / HTTP/1.1\r\nContent-Type: text/plain; charset=" + charset));
+        withLoggerAppender();
+        // When
+        message.setRequestBody("Body");
+        // Then
+        assertThat(message.getRequestBody().getCharset(), is(equalTo("ISO-8859-1")));
+        assertThat(message.getRequestBody().toString(), is(equalTo("Body")));
+        assertThat(testAppender.getLogEvents(), hasSize(1));
+        assertThat(
+                testAppender.getLogEvents().get(0).getMessage(),
+                containsString("Failed to set charset"));
+    }
+
+    @Test
+    void shouldWarnOnceOnSameUnknownCharsetWhenSettingRequestBody() throws Exception {
+        // Given
+        HttpMessage message = new HttpMessage();
+        message.setRequestHeader(
+                new HttpRequestHeader(
+                        "GET / HTTP/1.1\r\nContent-Type: text/plain; charset=1st_unknown"));
+        withLoggerAppender();
+        // When
+        message.setRequestBody("Body");
+        message.setRequestBody("Body");
+        message.setRequestHeader(
+                new HttpRequestHeader(
+                        "GET / HTTP/1.1\r\nContent-Type: text/plain; charset=2nd_unknown"));
+        message.setRequestBody("Body");
+        message.setRequestBody("Body");
+        // Then
+        assertThat(testAppender.getLogEvents(), hasSize(2));
+        assertThat(
+                testAppender.getLogEvents().get(0).getMessage(),
+                allOf(
+                        containsString("Failed to set charset"),
+                        containsString("charset=1st_unknown")));
+        assertThat(
+                testAppender.getLogEvents().get(1).getMessage(),
+                allOf(
+                        containsString("Failed to set charset"),
+                        containsString("charset=2nd_unknown")));
+    }
+
+    @Test
+    void shouldWarnOnceAgainOnSameUnknownCharsetWhenSettingRequestBodyAfterResettingWarns()
+            throws Exception {
+        // Given
+        HttpMessage message = new HttpMessage();
+        message.setRequestHeader(
+                new HttpRequestHeader(
+                        "GET / HTTP/1.1\r\nContent-Type: text/plain; charset=unknown"));
+        withLoggerAppender();
+        // When
+        message.setRequestBody("Body");
+        message.setRequestBody("Body");
+        HttpMessage.resetWarnedContentTypeValues();
+        message.setRequestBody("Body");
+        message.setRequestBody("Body");
+        // Then
+        assertThat(testAppender.getLogEvents(), hasSize(2));
+        assertThat(
+                testAppender.getLogEvents().get(0).getMessage(),
+                allOf(containsString("Failed to set charset"), containsString("charset=unknown")));
+        assertThat(
+                testAppender.getLogEvents().get(1).getMessage(),
+                allOf(containsString("Failed to set charset"), containsString("charset=unknown")));
     }
 
     static Stream<Arguments> setBodyData() {
+        String iso8851 = StandardCharsets.ISO_8859_1.name();
+        String utf8 = StandardCharsets.UTF_8.name();
         return Stream.of(
-                arguments(StandardCharsets.ISO_8859_1.name(), "J/ψ → VP", "J/????VP"),
-                arguments(StandardCharsets.UTF_8.name(), "J/ψ → VP", "J/ψ → VP"));
+                arguments(iso8851, iso8851, "J/ψ → VP", "J/????VP"),
+                arguments(utf8, utf8, "J/ψ → VP", "J/ψ → VP"),
+                // Check aliases work as well and don't cause warns
+                arguments("ISO_8859-1:1987", iso8851, "J/ψ → VP", "J/????VP"),
+                arguments("utf8", utf8, "J/ψ → VP", "J/ψ → VP"));
     }
 
     static Stream<Arguments> getNonPostMethods() {
@@ -602,20 +712,112 @@ class HttpMessageUnitTest {
                 .map(Arguments::arguments);
     }
 
+    @Test
+    void shouldUseCharsetProviderWhenSettingResponseBody() {
+        // Given
+        HttpMessage.setCharsetProvider((header, body) -> "UTF-16LE");
+        HttpMessage message = new HttpMessage();
+        withLoggerAppender();
+        // When
+        message.setResponseBody("");
+        // Then
+        assertThat(message.getResponseBody().getCharset(), is(equalTo("UTF-16LE")));
+        assertThat(testAppender.getLogEvents(), hasSize(0));
+    }
+
     @ParameterizedTest
     @MethodSource(value = "setBodyData")
     void shouldUseContentTypeCharsetWhenSettingResponseBody(
-            String charset, String body, String expectedBody) throws Exception {
+            String charset, String expectedCharset, String body, String expectedBody)
+            throws Exception {
         // Given
         HttpMessage message = new HttpMessage();
         message.setResponseHeader(
                 new HttpResponseHeader(
                         "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=" + charset));
+        withLoggerAppender();
         // When
         message.setResponseBody(body);
         // Then
-        assertThat(message.getResponseBody().getCharset(), is(equalTo(charset)));
+        assertThat(message.getResponseBody().getCharset(), is(equalTo(expectedCharset)));
         assertThat(message.getResponseBody().toString(), is(equalTo(expectedBody)));
+        assertThat(testAppender.getLogEvents(), hasSize(0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"unknown", "!~invalid~name~"})
+    void shouldUseDefaultAndWarnOnUnknownCharsetWhenSettingResponseBody(String charset)
+            throws Exception {
+        // Given
+        HttpMessage message = new HttpMessage();
+        message.setResponseHeader(
+                new HttpResponseHeader(
+                        "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=" + charset));
+        withLoggerAppender();
+        // When
+        message.setResponseBody("Body");
+        // Then
+        assertThat(message.getResponseBody().getCharset(), is(equalTo("UTF-8")));
+        assertThat(message.getResponseBody().toString(), is(equalTo("Body")));
+        assertThat(testAppender.getLogEvents(), hasSize(1));
+        assertThat(
+                testAppender.getLogEvents().get(0).getMessage(),
+                containsString("Failed to set charset"));
+    }
+
+    @Test
+    void shouldWarnOnceOnSameUnknownCharsetWhenSettingResponseBody() throws Exception {
+        // Given
+        HttpMessage message = new HttpMessage();
+        message.setResponseHeader(
+                new HttpResponseHeader(
+                        "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=1st_unknown"));
+        withLoggerAppender();
+        // When
+        message.setResponseBody("Body");
+        message.setResponseBody("Body");
+        message.setResponseHeader(
+                new HttpResponseHeader(
+                        "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=2nd_unknown"));
+        message.setResponseBody("Body");
+        message.setResponseBody("Body");
+        // Then
+        assertThat(testAppender.getLogEvents(), hasSize(2));
+        assertThat(
+                testAppender.getLogEvents().get(0).getMessage(),
+                allOf(
+                        containsString("Failed to set charset"),
+                        containsString("charset=1st_unknown")));
+        assertThat(
+                testAppender.getLogEvents().get(1).getMessage(),
+                allOf(
+                        containsString("Failed to set charset"),
+                        containsString("charset=2nd_unknown")));
+    }
+
+    @Test
+    void shouldWarnOnceAgainOnSameUnknownCharsetWhenSettingResponseBodyAfterResettingWarns()
+            throws Exception {
+        // Given
+        HttpMessage message = new HttpMessage();
+        message.setResponseHeader(
+                new HttpResponseHeader(
+                        "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=unknown"));
+        withLoggerAppender();
+        // When
+        message.setResponseBody("Body");
+        message.setResponseBody("Body");
+        HttpMessage.resetWarnedContentTypeValues();
+        message.setResponseBody("Body");
+        message.setResponseBody("Body");
+        // Then
+        assertThat(testAppender.getLogEvents(), hasSize(2));
+        assertThat(
+                testAppender.getLogEvents().get(0).getMessage(),
+                allOf(containsString("Failed to set charset"), containsString("charset=unknown")));
+        assertThat(
+                testAppender.getLogEvents().get(1).getMessage(),
+                allOf(containsString("Failed to set charset"), containsString("charset=unknown")));
     }
 
     private static HttpMessage newHttpMessage() throws Exception {
@@ -643,5 +845,13 @@ class HttpMessageUnitTest {
         ArgumentCaptor<List<HttpEncoding>> arg = ArgumentCaptor.forClass(List.class);
         verify(body).setContentEncodings(arg.capture());
         return arg.getValue();
+    }
+
+    private void withLoggerAppender() {
+        testAppender = new Log4jTestAppender();
+        LoggerContext context = LoggerContext.getContext();
+        Logger logger = context.getLogger(HttpMessage.class.getCanonicalName());
+        context.getConfiguration().addLoggerAppender(logger, testAppender);
+        logger.setLevel(Level.WARN);
     }
 }

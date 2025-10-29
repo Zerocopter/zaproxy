@@ -66,19 +66,23 @@
 package org.parosproxy.paros.network;
 
 import java.net.HttpCookie;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.Vector;
 import org.apache.commons.httpclient.URI;
 import org.apache.commons.httpclient.URIException;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.parosproxy.paros.model.HistoryReference;
@@ -125,7 +129,11 @@ public class HttpMessage implements Message {
                 body.setContentEncodings(encodings);
             };
 
+    private static final CharsetProvider DEFAULT_CHARSET_PROVIDER =
+            (header, body) -> header.getCharset();
+
     private static HttpEncodingsHandler contentEncodingsHandler;
+    private static CharsetProvider charsetProvider;
 
     private HttpRequestHeader mReqHeader = new HttpRequestHeader();
     private HttpRequestBody mReqBody = new HttpRequestBody();
@@ -154,6 +162,9 @@ public class HttpMessage implements Message {
      * <p>Default is {@code false}.
      */
     private boolean responseFromTargetHost = false;
+
+    private static final Set<String> WARNED_CONTENT_TYPE_VALUES =
+            Collections.synchronizedSet(new HashSet<>());
 
     public HistoryReference getHistoryRef() {
         return historyRef;
@@ -501,14 +512,55 @@ public class HttpMessage implements Message {
     }
 
     private static void setBodyCharset(HttpBody body, HttpHeader header) {
-        String charset = header.getCharset();
+        String charset = getCharset(header, body);
         body.setCharset(charset);
 
-        if (charset != null && !charset.equalsIgnoreCase(body.getCharset())) {
-            LOGGER.warn(
-                    "Failed to set charset {} from content-type value: {}",
-                    charset,
-                    header.getNormalisedContentTypeValue());
+        if (charset != null
+                && !charset.equalsIgnoreCase(body.getCharset())
+                && !isCharsetSupported(charset)) {
+            String contentTypeValue = header.getNormalisedContentTypeValue();
+            if (WARNED_CONTENT_TYPE_VALUES.add(contentTypeValue)) {
+                LOGGER.warn(
+                        "Failed to set charset {} from content-type value: {}",
+                        charset,
+                        header.getNormalisedContentTypeValue());
+            }
+        }
+    }
+
+    /**
+     * Sets the provider of charset.
+     *
+     * <p><strong>Note:</strong> Not part of the public API.
+     *
+     * @param provider the provider.
+     */
+    public static void setCharsetProvider(CharsetProvider provider) {
+        charsetProvider = provider;
+    }
+
+    private static String getCharset(HttpHeader header, HttpBody body) {
+        var localProvider = charsetProvider;
+        if (localProvider == null) {
+            localProvider = DEFAULT_CHARSET_PROVIDER;
+        }
+        return localProvider.get(header, body);
+    }
+
+    /**
+     * Resets the set of warned content-type values.
+     *
+     * <p><strong>Note:</strong> Not part of the public API.
+     */
+    public static void resetWarnedContentTypeValues() {
+        WARNED_CONTENT_TYPE_VALUES.clear();
+    }
+
+    private static boolean isCharsetSupported(String charset) {
+        try {
+            return Charset.isSupported(charset);
+        } catch (IllegalArgumentException ignore) {
+            return false;
         }
     }
 
@@ -864,7 +916,7 @@ public class HttpMessage implements Message {
     public TreeSet<HtmlParameter> getFormParams() {
         final String contentType = mReqHeader.getHeader(HttpRequestHeader.CONTENT_TYPE);
         if (contentType == null
-                || !StringUtils.startsWithIgnoreCase(
+                || !Strings.CI.startsWith(
                         contentType.trim(), HttpHeader.FORM_URLENCODED_CONTENT_TYPE)) {
             return new TreeSet<>();
         }
@@ -1297,5 +1349,10 @@ public class HttpMessage implements Message {
     public interface HttpEncodingsHandler {
 
         void handle(HttpHeader header, HttpBody body);
+    }
+
+    /** <strong>Note:</strong> Not part of the public API. */
+    public interface CharsetProvider {
+        String get(HttpHeader header, HttpBody body);
     }
 }
