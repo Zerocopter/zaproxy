@@ -1,6 +1,15 @@
 # Changelog
 All notable changes to the docker containers will be documented in this file.
 
+### 2026-03-10
+- Use alert references in "Alert on HTTP Response Code Errors" script to avoid duplicates (Issue 9273).
+
+### 2026-02-26
+- Updated weekly image to debian:trixie and JDK 21
+
+### 2026-02-25
+- Updated live image to debian:trixie and JDK 21
+
 ### 2026-02-09
 - Added support for the delay job in the baseline
 
