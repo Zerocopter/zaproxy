@@ -24,7 +24,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.commons.codec.digest.DigestUtils;
+import org.zaproxy.zap.tasks.internal.Utils;
 import org.gradle.api.Action;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.InvalidUserDataException;
@@ -173,7 +173,7 @@ public abstract class UploadAssetsGitHubRelease extends DefaultTask {
 
         String baseDownloadLink =
                 "https://github.com/" + repo.get() + "/releases/download/" + tag.get() + "/";
-        DigestUtils digestUtils = new DigestUtils(checksumAlgorithm.get());
+        String algorithm = checksumAlgorithm.get();
 
         List<File> files =
                 assets.stream()
@@ -182,13 +182,14 @@ public abstract class UploadAssetsGitHubRelease extends DefaultTask {
                         .collect(Collectors.toList());
         for (File file : files) {
             String fileName = file.getName();
+            String hexDigest = Utils.digest(file.toPath(), algorithm);
             body.append("| [")
                     .append(fileName)
                     .append("](")
                     .append(baseDownloadLink)
                     .append(fileName)
                     .append(") | `")
-                    .append(digestUtils.digestAsHex(file))
+                    .append(hexDigest)
                     .append("` |\n");
         }
         body.append(previousBody.substring(idx));

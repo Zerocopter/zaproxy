@@ -39,8 +39,7 @@ import java.util.Locale;
 import java.util.BitSet;
 import java.util.Hashtable;
 
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.net.URLCodec;
+import java.io.ByteArrayOutputStream;
 import org.apache.commons.httpclient.util.EncodingUtil;
 
 /*
@@ -58,6 +57,7 @@ import org.apache.commons.httpclient.util.EncodingUtil;
  *  - Use neutral Locale when converting to lower case.
  *  - Allow to create a URI from the authority component.
  *  - Replace usages of StringBuffer with StringBuilder.
+ *  - Include URL encode/decode logic from Apache Commons Codec URLCodec (see encodeUrl/decodeUrl).
  */
 /**
  * The interface for the URI(Uniform Resource Identifiers) version of RFC 2396.
@@ -1703,7 +1703,6 @@ public class URI implements Cloneable, Comparable<Object>, Serializable {
      * @return URI character sequence
      * @throws URIException null component or unsupported character encoding
      */
-        
     protected static char[] encode(String original, BitSet allowed,
             String charset) throws URIException {
         if (original == null) {
@@ -1712,8 +1711,101 @@ public class URI implements Cloneable, Comparable<Object>, Serializable {
         if (allowed == null) {
             throw new IllegalArgumentException("Allowed bitset may not be null");
         }
-        byte[] rawdata = URLCodec.encodeUrl(allowed, EncodingUtil.getBytes(original, charset));
+        byte[] rawdata = encodeUrl(allowed, EncodingUtil.getBytes(original, charset));
         return EncodingUtil.getAsciiString(rawdata).toCharArray();
+    }
+
+    /*
+     * The following encodeUrl and decodeUrl methods are from Apache Commons Codec
+     * org.apache.commons.codec.net.URLCodec, licensed under the Apache License, Version 2.0.
+     * See https://commons.apache.org/proper/commons-codec/
+     * Adapted to throw URIException instead of DecoderException.
+     */
+    private static final byte ESCAPE_CHAR = '%';
+
+    private static final BitSet WWW_FORM_URL_SAFE;
+    static {
+        BitSet safe = new BitSet(256);
+        for (int i = 'a'; i <= 'z'; i++) {
+            safe.set(i);
+        }
+        for (int i = 'A'; i <= 'Z'; i++) {
+            safe.set(i);
+        }
+        for (int i = '0'; i <= '9'; i++) {
+            safe.set(i);
+        }
+        safe.set('-');
+        safe.set('_');
+        safe.set('.');
+        safe.set('*');
+        safe.set(' ');
+        WWW_FORM_URL_SAFE = safe;
+    }
+
+    private static byte[] encodeUrl(BitSet urlsafe, byte[] bytes) {
+        if (bytes == null) {
+            return null;
+        }
+        if (urlsafe == null) {
+            urlsafe = WWW_FORM_URL_SAFE;
+        }
+        final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        for (final byte c : bytes) {
+            int b = c;
+            if (b < 0) {
+                b = 256 + b;
+            }
+            if (urlsafe.get(b)) {
+                if (b == ' ') {
+                    b = '+';
+                }
+                buffer.write(b);
+            } else {
+                buffer.write(ESCAPE_CHAR);
+                final char hex1 = hexChar(b >> 4);
+                final char hex2 = hexChar(b);
+                buffer.write(hex1);
+                buffer.write(hex2);
+            }
+        }
+        return buffer.toByteArray();
+    }
+
+    private static byte[] decodeUrl(byte[] bytes) throws URIException {
+        if (bytes == null) {
+            return null;
+        }
+        final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        for (int i = 0; i < bytes.length; i++) {
+            final int b = bytes[i];
+            if (b == '+') {
+                buffer.write(' ');
+            } else if (b == ESCAPE_CHAR) {
+                try {
+                    final int u = digit16(bytes[++i]);
+                    final int l = digit16(bytes[++i]);
+                    buffer.write((char) ((u << 4) + l));
+                } catch (final ArrayIndexOutOfBoundsException e) {
+                    throw new URIException("Invalid URL encoding: " + e.getMessage());
+                }
+            } else {
+                buffer.write(b);
+            }
+        }
+        return buffer.toByteArray();
+    }
+
+    private static int digit16(byte b) throws URIException {
+        final int i = Character.digit((char) b, 16);
+        if (i == -1) {
+            throw new URIException("Invalid URL encoding: not a valid digit (radix 16): " + b);
+        }
+        return i;
+    }
+
+    private static char hexChar(int b) {
+        return Character.toUpperCase(Character.forDigit(b & 0xF, 16));
     }
 
     /**
@@ -1791,12 +1883,7 @@ public class URI implements Cloneable, Comparable<Object>, Serializable {
         if (component == null) {
             throw new IllegalArgumentException("Component array of chars may not be null");
         }
-        byte[] rawdata = null;
-        try { 
-            rawdata = URLCodec.decodeUrl(EncodingUtil.getAsciiBytes(component));
-        } catch (DecoderException e) {
-            throw new URIException(e.getMessage());
-        }
+        byte[] rawdata = decodeUrl(EncodingUtil.getAsciiBytes(component));
         return EncodingUtil.getString(rawdata, charset);
     }
     /**
